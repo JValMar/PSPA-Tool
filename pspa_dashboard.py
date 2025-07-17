@@ -272,13 +272,11 @@ Review Date: {row['Review Date']}"""
     pdf.chapter_body(body)
 
 pdf_buffer = io.BytesIO()
-pdf_buffer = io.BytesIO()
-pdf.output(pdf_buffer)
-pdf_buffer.seek(0)
+pdf_data = pdf.output(dest='S').encode('latin1')
 
 st.download_button(
     label="📄 Download Report (.pdf)",
-    data=pdf_buffer.getvalue(),
+    data=pdf_data,
     file_name=f'{project.replace(" ", "_")}_PatientSafetyChecklist.pdf',
     mime='application/pdf'
 )
