@@ -246,10 +246,13 @@ for _, row in score_df.iterrows():
 pdf.set_text_color(0, 0, 0)
 pdf.ln(5)
 
-# Save radar chart as a temporary file for FPDF
-with open("radar_temp.png", "wb") as f:
-    f.write(img_buffer.getbuffer())
-pdf.image("radar_temp.png", x=40, y=None, w=130)
+import tempfile
+
+with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
+    tmp_img.write(img_buffer.getbuffer())
+    tmp_img_path = tmp_img.name
+
+pdf.image(tmp_img_path, x=40, y=None, w=130)
 pdf.ln(10)
 
 # Section Details
@@ -276,5 +279,5 @@ st.download_button(
 )
 
 import os
-os.remove("radar_temp.png")
+os.remove(tmp_img_path)
 st.success("✅ Evaluation complete. Reports ready for download.")
