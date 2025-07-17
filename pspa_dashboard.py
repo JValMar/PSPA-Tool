@@ -20,6 +20,7 @@ This checklist evaluates the comprehensive considerations required to advance pa
 """)
 
 # Sidebar: Project and Date
+logo_file = st.sidebar.file_uploader("Upload Logo Image (JPG/PNG)", type=["jpg", "jpeg", "png"])
 st.sidebar.header("Project Information")
 project = st.sidebar.text_input("Enter Project Title:", "Adama - Decreasing HAIs").replace('–', '-')
 eval_date = st.sidebar.date_input("Date of Evaluation:", date.today())
@@ -202,8 +203,12 @@ st.download_button(
 # PDF Generation
 class PDF(FPDF):
     def header(self):
-        if self.page_no() == 1:
-            self.image("RAICESP_eng_imresizer.jpg", x=10, y=8, w=25)
+        if self.page_no() == 1 and logo_file is not None:
+            tmp_logo = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+            tmp_logo.write(logo_file.read())
+            tmp_logo.close()
+            self.image(tmp_logo.name, x=10, y=8, w=25)
+            os.remove(tmp_logo.name)
         self.set_font('Arial', 'B', 12)
         self.cell(0, 10, "PATIENT SAFETY PROJECT ADEQUACY DASHBOARD", 0, 1, 'C')
         self.set_font('Arial', '', 11)
