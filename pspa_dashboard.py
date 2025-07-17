@@ -10,7 +10,7 @@ import numpy as np
 
 st.set_page_config(page_title="Ethiopia PS Checklist", layout="centered")
 st.title("📊 PATIENT SAFETY PROJECT ADEQUACY DASHBOARD")
-st.image("RAICESP_eng_imresizer.jpg", width=120)
+# st.image removed due to missing file on deployment
 # st.image("RAICESP_eng_imresizer.jpg", width=120)  # Removed due to file not found error on deployment
 st.markdown("**Version: 17/07/2025.** This is a draft proposal, based on the keynote of this workshop and some ideas from PS & QI tools. Please, feel free to suggest any issues to clarify or complete this checklist: jvmartin@us.es")
 st.markdown("""
@@ -272,13 +272,18 @@ Improvement Measures: {row['Improvement Measures']}
 Review Date: {row['Review Date']}"""
     pdf.chapter_body(body)
 
-pdf_buffer = io.BytesIO()
-pdf.output(pdf_buffer)
-pdf_buffer.seek(0)
+with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
+    pdf.output(tmp_pdf)
+    tmp_pdf_path = tmp_pdf.name
+
+with open(tmp_pdf_path, "rb") as f:
+    pdf_binary = f.read()
+
+os.remove(tmp_pdf_path)
 
 st.download_button(
     label="📄 Download Report (.pdf)",
-    data=pdf_buffer,
+    data=pdf_binary,
     file_name=f'{project.replace(" ", "_")}_PatientSafetyChecklist.pdf',
     mime='application/pdf'
 )
