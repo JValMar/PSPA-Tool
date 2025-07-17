@@ -202,6 +202,8 @@ st.download_button(
 # PDF Generation
 class PDF(FPDF):
     def header(self):
+        if self.page_no() == 1:
+            self.image("RAICESP_eng_imresizer.jpg", x=10, y=8, w=25)
         self.set_font('Arial', 'B', 12)
         self.cell(0, 10, "PATIENT SAFETY PROJECT ADEQUACY DASHBOARD", 0, 1, 'C')
         self.set_font('Arial', '', 11)
@@ -270,10 +272,11 @@ Review Date: {row['Review Date']}"""
 
 pdf_buffer = io.BytesIO()
 pdf_bytes = pdf.output(dest='S').encode('latin1')
+pdf_buffer = io.BytesIO(pdf_bytes)
 
 st.download_button(
     label="📄 Download Report (.pdf)",
-    data=pdf_bytes,
+    data=pdf_buffer.getvalue(),
     file_name=f'{project.replace(" ", "_")}_PatientSafetyChecklist.pdf',
     mime='application/pdf'
 )
