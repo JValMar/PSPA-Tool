@@ -246,8 +246,10 @@ for _, row in score_df.iterrows():
 pdf.set_text_color(0, 0, 0)
 pdf.ln(5)
 
-# Radar Chart insert
-pdf.image(img_buffer, x=40, y=None, w=130)
+# Save radar chart as a temporary file for FPDF
+with open("radar_temp.png", "wb") as f:
+    f.write(img_buffer.getbuffer())
+pdf.image("radar_temp.png", x=40, y=None, w=130)
 pdf.ln(10)
 
 # Section Details
@@ -273,4 +275,6 @@ st.download_button(
     mime='application/pdf'
 )
 
+import os
+os.remove("radar_temp.png")
 st.success("✅ Evaluation complete. Reports ready for download.")
