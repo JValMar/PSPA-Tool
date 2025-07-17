@@ -271,7 +271,7 @@ Improvement Measures: {row['Improvement Measures']}
 Review Date: {row['Review Date']}"""
     pdf.chapter_body(body)
 
-pdf_data = pdf.output(name=None).encode('latin1')
+pdf_data = pdf.output(dest='S').encode('latin1')
 
 st.download_button(
     label="📄 Download Report (.pdf)",
