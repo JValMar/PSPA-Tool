@@ -1,4 +1,4 @@
-CHECKLIST PROPOSAL:  PATIENT SAFETY PROJECTS ADEQUACY 
+PATIENT SAFETY PROJECTS ADEQUACY DASHBOARD
 Version: 17/07/2025
 This is a draft proposal, based on the keynote of this workshop and some ideas get from PS & QI tools. 
 Please, feel free to suggest any issues to clarify or complete this checklist: jvmartin@us.es 
