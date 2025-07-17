@@ -4,6 +4,7 @@ This is a draft proposal, based on the keynote of this workshop and some ideas g
 Please, feel free to suggest any issues to clarify or complete this checklist: jvmartin@us.es 
 
 This checklist evaluates the comprehensive considerations required to advance patient safety (PS) at the hospital level, ensuring alignment with international standards while adapting to local realities.
+
 Note: Regularly review progress with this checklist, adapting as new challenges and opportunities arise, and ensure culturally sensitive, locally driven, and sustainable improvement.
 
 1. LEADERSHIP & GOVERNANCE:
