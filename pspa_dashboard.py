@@ -147,6 +147,7 @@ ax.set_title('Patient Safety Project Radar', size=12, pad=20)
 plt.tight_layout()
 img_buffer = io.BytesIO()
 plt.savefig(img_buffer, format='png')
+img_buffer.name = "radar.png"
 img_buffer.seek(0)
 plt.close()
 
