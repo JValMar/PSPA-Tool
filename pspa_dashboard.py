@@ -2,7 +2,7 @@
 
 import streamlit as st
 import pandas as pd
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta
 import io
 from fpdf import FPDF
 import matplotlib.pyplot as plt
@@ -82,22 +82,16 @@ domain_questions = {
 }
 
 # Input Collection
-domain_scores = {}
-review_dates = {}
-notes = {}
+domain_scores, notes, review_dates = {}, {}, {}
 
 st.header("📌 Self-Assessment by Domain")
 
 for domain, questions in domain_questions.items():
     st.markdown(f"### {domain}")
-    scores = []
-    for q in questions:
-        score = st.slider(q, 0, 10, 5, key=f"{domain}-{q}")
-        scores.append(score)
+    scores = [st.slider(q, 0, 10, 5, key=f"{domain}-{q}") for q in questions]
     avg_score = round(np.mean(scores), 2)
     domain_scores[domain] = avg_score
 
-    # Color-coded feedback
     if avg_score >= 8:
         st.markdown(':green[Excellent domain score]')
     elif avg_score >= 6:
@@ -107,8 +101,7 @@ for domain, questions in domain_questions.items():
     else:
         st.markdown(':red[Critical domain score]')
 
-    lowest_index = scores.index(min(scores))
-    lowest_q = questions[lowest_index]
+    lowest_q = questions[scores.index(min(scores))]
     st.caption(f"Lowest scored question: {lowest_q}")
     notes[domain] = st.text_area(f"✏️ Improvement Measures for {domain}", "")
     review_dates[domain] = st.date_input(f"📅 Review Date for {domain}", date.today() + timedelta(days=90))
@@ -132,7 +125,6 @@ fig, ax = plt.subplots(figsize=(6, 6), subplot_kw=dict(polar=True))
 ax.plot(angles, scores, 'o-', linewidth=2)
 ax.fill(angles, scores, alpha=0.25)
 ax.set_yticks(range(0, 11, 2))
-ax.set_yticklabels(map(str, range(0, 11, 2)))
 ax.set_xticks(angles[:-1])
 ax.set_xticklabels(labels, size=8)
 ax.set_title("Patient Safety Project Radar", va='bottom')
@@ -140,44 +132,6 @@ ax.set_title("Patient Safety Project Radar", va='bottom')
 img_buffer = io.BytesIO()
 plt.savefig(img_buffer, format='png')
 img_buffer.seek(0)
-
-# Summary of Domain Scores
-st.subheader("Summary of Domain Scores")
-for domain, score in domain_scores.items():
-    if score >= 8:
-        st.markdown(f"**{domain}:** :green[{score}/10 - Excellent]")
-    elif score >= 6:
-        st.markdown(f"**{domain}:** :orange[{score}/10 - Moderate]")
-    elif score >= 4:
-        st.markdown(f"**{domain}:** :orange[{score}/10 - Low]")
-    else:
-        st.markdown(f"**{domain}:** :red[{score}/10 - Critical]")
-    lowest_question = 'No question answered' if not domain_questions.get(domain) else domain_questions[domain][0]
-    st.caption(f"Lowest scored question: {notes[domain] if notes[domain] else lowest_question}")
-
-# Bar chart of domain scores with color coding
-colors = []
-for score in domain_scores.values():
-    if score >= 8:
-        colors.append('green')
-    elif score >= 6:
-        colors.append('orange')
-    elif score >= 4:
-        colors.append('darkorange')
-    else:
-        colors.append('red')
-
-bar_fig, bar_ax = plt.subplots(figsize=(8, 4))
-bars = bar_ax.bar(domain_scores.keys(), domain_scores.values(), color=colors)
-
-# Add value labels on top of bars
-for bar, val in zip(bars, domain_scores.values()):
-    bar_ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.1, f'{val}', ha='center', va='bottom', fontsize=8)
-bar_ax.set_ylim(0, 10)
-bar_ax.set_ylabel('Score')
-bar_ax.set_title('Domain Scores Overview')
-plt.xticks(rotation=45, ha='right')
-st.pyplot(bar_fig)
 
 # PDF Generation
 pdf = FPDF()
@@ -187,15 +141,15 @@ pdf.cell(200, 10, txt="Patient Safety Project Adequacy Report", ln=1, align="C")
 
 pdf.set_font("Arial", "", 12)
 for _, row in score_df.iterrows():
-    text_block = (
+    block = (
         f"{row['Checklist Dimension']}: {row['Score']}/10\n"
         f"Lowest: {row['Lowest Scored Question']}\n"
         f"Improvement: {row['Improvement Measures']}\n"
         f"Review: {row['Review Date']}"
     )
-    pdf.multi_cell(0, 10, txt=text_block)
+    pdf.multi_cell(0, 10, txt=block)
 
-# Save PDF to temporary file (Android-friendly)
+# Save PDF as temp file (Android-friendly)
 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
     tmp_pdf_path = tmp_pdf.name
 pdf.output(tmp_pdf_path)
@@ -205,22 +159,14 @@ with open(tmp_pdf_path, "rb") as f:
 
 os.remove(tmp_pdf_path)
 
-# Export Excel Logic
+# Excel Export
 excel_buffer = io.BytesIO()
 with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
     score_df.to_excel(writer, index=False, sheet_name='Scores')
-    workbook = writer.book
     worksheet = writer.sheets['Scores']
-
-    # Auto-fit columns
     for col_num, value in enumerate(score_df.columns.values):
-        column_len = max(
-            score_df[value].astype(str).map(len).max(),
-            len(value)
-        ) + 2
-        worksheet.set_column(col_num, col_num, column_len)
-
-    # Insert radar chart
+        col_len = max(score_df[value].astype(str).map(len).max(), len(value)) + 2
+        worksheet.set_column(col_num, col_num, col_len)
     worksheet.insert_image('H2', 'radar.png', {'image_data': img_buffer})
 
 st.download_button(
