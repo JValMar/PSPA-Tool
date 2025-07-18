@@ -2,7 +2,7 @@
 
 import streamlit as st
 import pandas as pd
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 import io
 from fpdf import FPDF
 import matplotlib.pyplot as plt
@@ -133,23 +133,52 @@ img_buffer = io.BytesIO()
 plt.savefig(img_buffer, format='png')
 img_buffer.seek(0)
 
-# PDF Generation
-pdf = FPDF()
+# PDF Generation Class
+class PDF(FPDF):
+    def header(self):
+        self.set_font('Arial', 'B', 12)
+        self.cell(0, 10, "PATIENT SAFETY PROJECT ADEQUACY DASHBOARD", 0, 1, 'C')
+        self.set_font('Arial', '', 11)
+        self.cell(0, 10, f"Project: {project}", 0, 1, 'C')
+        self.ln(5)
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Arial', 'I', 8)
+        self.cell(0, 10, f"Thank you for use this tool. Please share any suggestion: jvmartin@us.es | Downloaded: {datetime.now().strftime('%Y-%m-%d %H:%M')} | Page {self.page_no()} of {{nb}}", 0, 0, 'C')
+
+    def chapter_title(self, title):
+        self.set_font('Arial', 'B', 10)
+        self.cell(0, 8, title, 0, 1, 'L')
+
+    def chapter_body(self, body):
+        self.set_font('Arial', '', 9)
+        self.multi_cell(0, 6, body)
+        self.ln()
+
+pdf = PDF()
+pdf.alias_nb_pages()
 pdf.add_page()
-pdf.set_font("Arial", "B", 14)
-pdf.cell(200, 10, txt="Patient Safety Project Adequacy Report", ln=1, align="C")
 
-pdf.set_font("Arial", "", 12)
+pdf.set_font('Arial', '', 10)
+pdf.cell(0, 8, "Summary of Scores by Dimension:", ln=1)
 for _, row in score_df.iterrows():
-    block = (
-        f"{row['Checklist Dimension']}: {row['Score']}/10\n"
-        f"Lowest: {row['Lowest Scored Question']}\n"
-        f"Improvement: {row['Improvement Measures']}\n"
-        f"Review: {row['Review Date']}"
-    )
-    pdf.multi_cell(0, 10, txt=block)
+    pdf.cell(0, 6, f"{row['Checklist Dimension']:<40} {row['Score']}/10", ln=1)
 
-# Save PDF as temp file (Android-friendly)
+pdf.ln(5)
+# Insert radar chart
+with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
+    tmp_img.write(img_buffer.getvalue())
+    tmp_img_path = tmp_img.name
+pdf.image(tmp_img_path, x=40, y=None, w=130)
+os.remove(tmp_img_path)
+
+pdf.ln(10)
+for _, row in score_df.iterrows():
+    pdf.chapter_title(row['Checklist Dimension'])
+    body = f"Score: {row['Score']}\nLowest Scored Question: {row['Lowest Scored Question']}\nImprovement Measures: {row['Improvement Measures']}\nReview Date: {row['Review Date']}"
+    pdf.chapter_body(body)
+
 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
     tmp_pdf_path = tmp_pdf.name
 pdf.output(tmp_pdf_path)
