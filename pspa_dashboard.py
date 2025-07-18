@@ -133,7 +133,7 @@ img_buffer = io.BytesIO()
 plt.savefig(img_buffer, format='png')
 img_buffer.seek(0)
 
-# PDF Generation Class
+# PDF Generation with Android compatibility
 class PDF(FPDF):
     def header(self):
         self.set_font('Arial', 'B', 12)
@@ -166,7 +166,6 @@ for _, row in score_df.iterrows():
     pdf.cell(0, 6, f"{row['Checklist Dimension']:<40} {row['Score']}/10", ln=1)
 
 pdf.ln(5)
-# Insert radar chart
 with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
     tmp_img.write(img_buffer.getvalue())
     tmp_img_path = tmp_img.name
@@ -175,19 +174,16 @@ os.remove(tmp_img_path)
 
 pdf.ln(10)
 for _, row in score_df.iterrows():
-    pdf.chapter_title(row['Checklist Dimension'])
     body = f"Score: {row['Score']}\nLowest Scored Question: {row['Lowest Scored Question']}\nImprovement Measures: {row['Improvement Measures']}\nReview Date: {row['Review Date']}"
+    pdf.chapter_title(row['Checklist Dimension'])
     pdf.chapter_body(body)
 
 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
     tmp_pdf_path = tmp_pdf.name
-pdf.output(tmp_pdf_path)
+    pdf.output(tmp_pdf_path)
 
 with open(tmp_pdf_path, "rb") as f:
     pdf_data = f.read()
-
-# Ensure compatibility with Android download
-pdf_data = bytes(pdf_data)
 
 os.remove(tmp_pdf_path)
 
