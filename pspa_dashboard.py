@@ -197,32 +197,6 @@ bar_ax.set_title('Domain Scores Overview')
 plt.xticks(rotation=45, ha='right')
 st.pyplot(bar_fig)
 
-# PDF Generation
-from fpdf import FPDF
-
-pdf = FPDF()
-pdf.add_page()
-pdf.set_font("Arial", "B", 14)
-pdf.cell(200, 10, txt="Patient Safety Project Adequacy Report", ln=1, align="C")
-
-pdf.set_font("Arial", "", 12)
-for _, row in score_df.iterrows():
-    pdf.multi_cell(0, 10, txt=f"{row['Checklist Dimension']}: {row['Score']}/10
-Lowest: {row['Lowest Scored Question']}
-Improvement: {row['Improvement Measures']}
-Review: {row['Review Date']}")
-
-# Save PDF to temporary file
-with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
-    tmp_pdf_path = tmp_pdf.name
-pdf.output(tmp_pdf_path)
-
-# Read PDF binary for download
-with open(tmp_pdf_path, "rb") as f:
-    pdf_data = f.read()
-
-os.remove(tmp_pdf_path)
-
 st.download_button(
     label="📊 Download Excel (.xlsx)",
     data=excel_buffer.getvalue(),
