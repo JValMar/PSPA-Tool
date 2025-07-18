@@ -220,6 +220,8 @@ Improvement Measures: {row['Improvement Measures']}
 Review Date: {row['Review Date']}"""
     pdf.chapter_body(body)
 
+
+
 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
     tmp_pdf_path = tmp_pdf.name
 pdf.output(tmp_pdf_path)
@@ -234,4 +236,7 @@ with open(tmp_pdf_path, "rb") as f:
 
 os.remove(tmp_pdf_path)
 os.remove(tmp_img_path)
+st.markdown("---")
+st.markdown("💬 **Thank you for using this tool.** Please help us improve it by sharing your comments and suggestions: [https://bit.ly/raicesp](https://bit.ly/raicesp)")
+
 st.success("✅ Evaluation complete. Reports ready for download.")
