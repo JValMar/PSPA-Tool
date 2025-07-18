@@ -160,86 +160,14 @@ with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
     # Insert radar chart
     worksheet.insert_image('H2', 'radar.png', {'image_data': img_buffer})
 
+st.markdown("---")
+
 st.download_button(
     label="📊 Download Excel (.xlsx)",
     data=excel_buffer.getvalue(),
     file_name=f'{eval_date.strftime("%Y-%m-%d")}_PSPA_report_{project.replace(" ", "_")}.xlsx',
     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 )
-
-# PDF Generation
-class PDF(FPDF):
-    def header(self):
-        self.set_font('Arial', 'B', 12)
-        self.cell(0, 10, "PATIENT SAFETY PROJECT ADEQUACY DASHBOARD", 0, 1, 'C')
-        self.set_font('Arial', '', 11)
-        self.cell(0, 10, f"Project: {project}", 0, 1, 'C')
-        self.ln(5)
-
-    def footer(self):
-        self.set_y(-40)
-        self.set_font('Arial', 'I', 8)
-        self.set_y(-15)
-        self.cell(0, 6, f"Thank you for use this tool. Please share any suggestion: jvmartin@us.es | Downloaded: {datetime.now().strftime('%Y-%m-%d %H:%M')} | Page {self.page_no()} of {{nb}}", 0, 0, 'C')
-
-    def chapter_title(self, title):
-        self.set_font('Arial', 'B', 10)
-        self.cell(0, 8, title, 0, 1, 'L')
-
-    def chapter_body(self, body):
-        self.set_font('Arial', '', 9)
-        self.multi_cell(0, 6, body)
-        self.ln()
-
-pdf = PDF()
-pdf.alias_nb_pages()
-pdf.add_page()
-
-pdf.set_font('Arial', '', 10)
-pdf.cell(0, 8, "Summary of Scores by Dimension:", ln=1)
-for _, row in score_df.iterrows():
-    score = row['Score']
-    if score >= 8:
-        color = (0, 128, 0)
-    elif score >= 6:
-        color = (255, 165, 0)
-    elif score >= 4:
-        color = (255, 140, 0)
-    else:
-        color = (255, 0, 0)
-    pdf.set_text_color(*color)
-    pdf.cell(0, 6, f"{row['Checklist Dimension']:<40} {score}/10", ln=1)
-
-pdf.set_text_color(0, 0, 0)
-pdf.ln(5)
-
-with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
-    tmp_img.write(img_buffer.getbuffer())
-    tmp_img_path = tmp_img.name
-
-pdf.image(tmp_img_path, x=40, y=None, w=130)
-pdf.ln(10)
-
-for _, row in score_df.iterrows():
-    pdf.chapter_title(row['Checklist Dimension'])
-    if row['Score'] < 6:
-        pdf.set_font('Arial', 'B', 9)
-    else:
-        pdf.set_font('Arial', '', 9)
-    body = f"""Score: {row['Score']}
-Lowest Scored Question: {row['Lowest Scored Question']}
-Improvement Measures: {row['Improvement Measures']}
-Review Date: {row['Review Date']}"""
-    pdf.chapter_body(body)
-
-
-
-with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
-    tmp_pdf_path = tmp_pdf.name
-pdf.output(tmp_pdf_path)
-
-with open(tmp_pdf_path, "rb") as f:
-    pdf_data = f.read()
 
 st.download_button(
     label="📄 Download Report (.pdf)",
@@ -248,8 +176,6 @@ st.download_button(
     mime='application/pdf'
 )
 
-os.remove(tmp_img_path)
-os.remove(tmp_pdf_path)
 st.markdown("---")
 st.markdown("💬 **Thank you for using this tool.** Please help us improve it by sharing your comments and suggestions: [https://bit.ly/raicesp](https://bit.ly/raicesp)")
 
@@ -263,7 +189,8 @@ for domain, score in domain_scores.items():
         st.markdown(f"**{domain}:** :orange[{score}/10 - Low]")
     else:
         st.markdown(f"**{domain}:** :red[{score}/10 - Critical]")
-    st.caption(f"Lowest scored question: {notes[domain] if notes[domain] else 'Not specified'}")
+    lowest_question = 'No question answered' if not domain_questions.get(domain) else domain_questions[domain][0]
+    st.caption(f"Lowest scored question: {notes[domain] if notes[domain] else lowest_question}")
 
 # Bar chart of domain scores with color coding
 colors = []
