@@ -227,9 +227,11 @@ with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
 pdf.output(tmp_pdf_path)
 
 with open(tmp_pdf_path, "rb") as f:
-    st.download_button(
+    pdf_data = f.read()
+
+st.download_button(
     label="📄 Download Report (.pdf)",
-    data=f,
+    data=pdf_data,
     file_name=f'{project.replace(" ", "_")}_PatientSafetyChecklist.pdf',
     mime='application/pdf'
 )
