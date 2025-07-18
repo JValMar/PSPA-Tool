@@ -186,6 +186,9 @@ pdf.output(tmp_pdf_path)
 with open(tmp_pdf_path, "rb") as f:
     pdf_data = f.read()
 
+# Ensure compatibility with Android download
+pdf_data = bytes(pdf_data)
+
 os.remove(tmp_pdf_path)
 
 # Excel Export
