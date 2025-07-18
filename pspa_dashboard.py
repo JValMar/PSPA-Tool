@@ -133,7 +133,7 @@ img_buffer = io.BytesIO()
 plt.savefig(img_buffer, format='png')
 img_buffer.seek(0)
 
-# PDF Generation with Android compatibility
+# PDF Generation (Android-friendly)
 class PDF(FPDF):
     def header(self):
         self.set_font('Arial', 'B', 12)
@@ -183,10 +183,7 @@ with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
     pdf.output(tmp_pdf_path)
 
 with open(tmp_pdf_path, "rb") as f:
-    pdf_binary = f.read()
-
-# Use binary data for Streamlit button (Android-friendly)
-pdf_data = io.BytesIO(pdf_binary)
+    pdf_data = f.read()
 
 os.remove(tmp_pdf_path)
 
