@@ -178,17 +178,15 @@ for _, row in score_df.iterrows():
     pdf.chapter_title(row['Checklist Dimension'])
     pdf.chapter_body(body)
 
+# Save PDF to temp file and read in binary mode (Android fix)
 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
     tmp_pdf_path = tmp_pdf.name
     pdf.output(tmp_pdf_path)
 
 with open(tmp_pdf_path, "rb") as f:
-    pdf_binary = f.read()
+    pdf_data = f.read()
 
 os.remove(tmp_pdf_path)
-
-# Use binary data directly for Android compatibility
-pdf_data = pdf_binary
 
 # Excel Export
 excel_buffer = io.BytesIO()
