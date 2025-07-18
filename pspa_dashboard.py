@@ -273,8 +273,8 @@ Review Date: {row['Review Date']}"""
     pdf.chapter_body(body)
 
 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
-    pdf.output(tmp_pdf_path)
     tmp_pdf_path = tmp_pdf.name
+pdf.output(tmp_pdf_path)
 
 with open(tmp_pdf_path, "rb") as f:
     pdf_binary = f.read()
