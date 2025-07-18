@@ -183,7 +183,10 @@ with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
     pdf.output(tmp_pdf_path)
 
 with open(tmp_pdf_path, "rb") as f:
-    pdf_data = f.read()
+    pdf_binary = f.read()
+
+# Use binary data for Streamlit button (Android-friendly)
+pdf_data = io.BytesIO(pdf_binary)
 
 os.remove(tmp_pdf_path)
 
