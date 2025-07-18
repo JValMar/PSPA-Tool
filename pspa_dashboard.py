@@ -185,6 +185,9 @@ with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
 with open(tmp_pdf_path, "rb") as f:
     pdf_data = f.read()
 
+# Use a BytesIO object for Android compatibility
+pdf_bytes = io.BytesIO(pdf_data)
+
 os.remove(tmp_pdf_path)
 
 # Excel Export
@@ -206,7 +209,7 @@ st.download_button(
 
 st.download_button(
     label="📄 Download Report (.pdf)",
-    data=pdf_data,
+    data=pdf_bytes,
     file_name=f'{eval_date.strftime("%Y-%m-%d")}_PSPA_report_{project.replace(" ", "_")}.pdf',
     mime='application/pdf'
 )
