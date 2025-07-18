@@ -222,7 +222,12 @@ Review Date: {row['Review Date']}"""
 
 
 
-pdf_data = pdf.output(dest="S").encode("latin1")
+with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
+    tmp_pdf_path = tmp_pdf.name
+pdf.output(tmp_pdf_path)
+
+with open(tmp_pdf_path, "rb") as f:
+    pdf_data = f.read()
 
 st.download_button(
     label="📄 Download Report (.pdf)",
@@ -231,6 +236,7 @@ st.download_button(
     mime='application/pdf'
 )
 
+os.remove(tmp_pdf_path)
 os.remove(tmp_img_path)
 st.markdown("---")
 st.markdown("💬 **Thank you for using this tool.** Please help us improve it by sharing your comments and suggestions: [https://bit.ly/raicesp](https://bit.ly/raicesp)")
