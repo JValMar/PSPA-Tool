@@ -31,16 +31,125 @@ st.sidebar.markdown("---")
 st.sidebar.info("For each domain, respond to multiple evaluation questions (0–10 scale). A summary and recommendations will be generated.")
 
 # Domain Questions
-...  # [Keep your domain_questions definition unchanged]
+domain_questions = {
+    "1. Leadership & Governance": [
+        "Are PS responsibilities clearly assigned?",
+        "Is there a PS committee or team that meets regularly?",
+        "Are there PS indicators being tracked?",
+        "Is PS integrated into strategic planning?"
+    ],
+    "2. Staffing, Skills & Safety Culture": [
+        "Is there a shortage of critical staff?",
+        "Do staff feel safe to report incidents?",
+        "Are regular trainings on PS and IPC conducted?",
+        "Do staff feel supported to raise concerns?"
+    ],
+    "3. Baseline Assessment": [
+        "Has a PS situation analysis been done?",
+        "Have PS risks or gaps been identified and prioritized?",
+        "Are baseline indicators available?",
+        "Were patients or community consulted?"
+    ],
+    "4. Intervention Design": [
+        "Were actions chosen based on evidence or data?",
+        "Are responsibilities and timelines defined?",
+        "Are patients or staff involved in designing improvements?",
+        "Is it clear what change is expected and how to measure it?"
+    ],
+    "5. Change Management & Implementation": [
+        "Is there a team leading the changes?",
+        "Are changes being piloted or tested before full rollout?",
+        "Are there regular meetings to review progress?",
+        "Is coaching or support provided to staff?"
+    ],
+    "6. Monitoring & Measurement": [
+        "Are indicators or data collected regularly?",
+        "Are data used to inform decisions or actions?",
+        "Are feedback loops established with frontline staff?",
+        "Is there disaggregated data for equity (e.g. gender)?"
+    ],
+    "7. Sustainability & Partnerships": [
+        "Are changes being integrated into routines or policies?",
+        "Is there external support (e.g. MoH, NGOs)?",
+        "Is there capacity-building for sustainability?",
+        "Are partnerships formalized or evaluated?"
+    ]
+}
 
 # Input Collection
-...  # [Keep your domain_scores, review_dates, notes logic unchanged]
+domain_scores = {}
+review_dates = {}
+notes = {}
+
+st.header("📌 Self-Assessment by Domain")
+
+for domain, questions in domain_questions.items():
+    st.markdown(f"### {domain}")
+    scores = []
+    for q in questions:
+        score = st.slider(q, 0, 10, 5, key=f"{domain}-{q}")
+        scores.append(score)
+    avg_score = round(np.mean(scores), 2)
+    domain_scores[domain] = avg_score
+    lowest_index = scores.index(min(scores))
+    lowest_q = questions[lowest_index]
+    notes[domain] = st.text_area(f"✏️ Improvement Measures for {domain}", "")
+    review_dates[domain] = st.date_input(f"📅 Review Date for {domain}", date.today() + timedelta(days=90))
+
+score_df = pd.DataFrame({
+    "Checklist Dimension": list(domain_scores.keys()),
+    "Score": list(domain_scores.values()),
+    "Lowest Scored Question": [
+        domain_questions[dim][0] if dim not in notes else notes[dim] for dim in domain_scores.keys()
+    ],
+    "Improvement Measures": [notes[dim] for dim in domain_scores.keys()],
+    "Review Date": [review_dates[dim] for dim in domain_scores.keys()]
+})
 
 # Radar Chart Generation
-...  # [Keep matplotlib chart generation logic unchanged]
+labels = list(domain_scores.keys())
+scores = list(domain_scores.values())
+angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False).tolist()
+scores += scores[:1]
+angles += angles[:1]
+
+fig, ax = plt.subplots(figsize=(6, 6), subplot_kw=dict(polar=True))
+ax.plot(angles, scores, 'o-', linewidth=2)
+ax.fill(angles, scores, alpha=0.25)
+ax.set_yticks(range(0, 11, 2))
+ax.set_yticklabels(map(str, range(0, 11, 2)))
+ax.set_xticks(angles[:-1])
+ax.set_xticklabels(labels, size=8)
+ax.set_title("Patient Safety Project Radar", va='bottom')
+
+img_buffer = io.BytesIO()
+plt.savefig(img_buffer, format='png')
+img_buffer.seek(0)
 
 # Export Excel Logic
-...  # [Keep Excel export logic unchanged]
+excel_buffer = io.BytesIO()
+with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+    score_df.to_excel(writer, index=False, sheet_name='Scores')
+    workbook = writer.book
+    worksheet = writer.sheets['Scores']
+
+    # Auto-fit columns
+    for col_num, value in enumerate(score_df.columns.values):
+        column_len = max(
+            score_df[value].astype(str).map(len).max(),
+            len(value)
+        ) + 2
+        worksheet.set_column(col_num, col_num, column_len)
+
+    # Insert radar chart
+    worksheet.insert_image('H2', 'radar.png', {'image_data': img_buffer})
+
+st.download_button(
+    label="📊 Download Excel (.xlsx)",
+    data=excel_buffer.getvalue(),
+    file_name=f'{project.replace(" ", "_")}_PatientSafetyChecklist.xlsx',
+    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+)
 
 # PDF Generation
 class PDF(FPDF):
