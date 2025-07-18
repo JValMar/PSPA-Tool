@@ -11,7 +11,7 @@ import tempfile
 import os
 
 st.set_page_config(page_title="Ethiopia PS Checklist", layout="centered")
-st.image("https://raw.githubusercontent.com/yourusername/yourrepo/main/RAICESP_eng_imresizer.jpg", width=150)
+st.image("RAICESP_eng_imresizer.jpg", width=150)
 st.title("📊 PATIENT SAFETY PROJECT ADEQUACY DASHBOARD")
 
 st.markdown("**Version: 17/07/2025.** This is a draft proposal, based on the keynote of this workshop and some ideas from PS & QI tools. Please, feel free to suggest any issues to clarify or complete this checklist: jvmartin@us.es")
@@ -25,7 +25,10 @@ This checklist evaluates the comprehensive considerations required to advance pa
 
 # Sidebar: Project and Date
 st.sidebar.header("Project Information")
-project = st.sidebar.text_input("Enter Project Title:", "My Safety Improvement Project").replace('–', '-')
+project = st.sidebar.text_input("Enter Project Title:")
+if not project:
+    st.warning("⚠️ Please enter a project title in the sidebar to personalize your reports.")
+project = project.replace('–', '-')
 eval_date = st.sidebar.date_input("Date of Evaluation:", date.today())
 
 st.sidebar.markdown("---")
