@@ -236,8 +236,8 @@ st.download_button(
     mime='application/pdf'
 )
 
-os.remove(tmp_pdf_path)
 os.remove(tmp_img_path)
+os.remove(tmp_pdf_path)
 st.markdown("---")
 st.markdown("💬 **Thank you for using this tool.** Please help us improve it by sharing your comments and suggestions: [https://bit.ly/raicesp](https://bit.ly/raicesp)")
 
