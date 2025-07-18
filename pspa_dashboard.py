@@ -151,7 +151,7 @@ with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
 st.download_button(
     label="📊 Download Excel (.xlsx)",
     data=excel_buffer.getvalue(),
-    file_name=f'{project.replace(" ", "_")}_PatientSafetyChecklist.xlsx',
+    file_name=f'{eval_date.strftime("%Y-%m-%d")}_PSPA_report_{project.replace(" ", "_")}.xlsx',
     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 )
 
@@ -222,21 +222,15 @@ Review Date: {row['Review Date']}"""
 
 
 
-with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
-    tmp_pdf_path = tmp_pdf.name
-pdf.output(tmp_pdf_path)
-
-with open(tmp_pdf_path, "rb") as f:
-    pdf_data = f.read()
+pdf_data = pdf.output(dest="S").encode("latin1")
 
 st.download_button(
     label="📄 Download Report (.pdf)",
     data=pdf_data,
-    file_name=f'{project.replace(" ", "_")}_PatientSafetyChecklist.pdf',
+    file_name=f'{eval_date.strftime("%Y-%m-%d")}_PSPA_report_{project.replace(" ", "_")}.pdf',
     mime='application/pdf'
 )
 
-os.remove(tmp_pdf_path)
 os.remove(tmp_img_path)
 st.markdown("---")
 st.markdown("💬 **Thank you for using this tool.** Please help us improve it by sharing your comments and suggestions: [https://bit.ly/raicesp](https://bit.ly/raicesp)")
