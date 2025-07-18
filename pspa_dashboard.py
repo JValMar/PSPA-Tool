@@ -273,7 +273,7 @@ Review Date: {row['Review Date']}"""
     pdf.chapter_body(body)
 
 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
-    pdf.output(tmp_pdf)
+    pdf.output(tmp_pdf_path)
     tmp_pdf_path = tmp_pdf.name
 
 with open(tmp_pdf_path, "rb") as f:
