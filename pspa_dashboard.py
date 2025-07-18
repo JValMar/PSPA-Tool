@@ -95,8 +95,20 @@ for domain, questions in domain_questions.items():
         scores.append(score)
     avg_score = round(np.mean(scores), 2)
     domain_scores[domain] = avg_score
+
+    # Color-coded feedback
+    if avg_score >= 8:
+        st.markdown(':green[Excellent domain score]')
+    elif avg_score >= 6:
+        st.markdown(':orange[Moderate domain score]')
+    elif avg_score >= 4:
+        st.markdown(':orange[Low domain score]')
+    else:
+        st.markdown(':red[Critical domain score]')
+
     lowest_index = scores.index(min(scores))
     lowest_q = questions[lowest_index]
+    st.caption(f"Lowest scored question: {lowest_q}")
     notes[domain] = st.text_area(f"✏️ Improvement Measures for {domain}", "")
     review_dates[domain] = st.date_input(f"📅 Review Date for {domain}", date.today() + timedelta(days=90))
 
@@ -240,5 +252,41 @@ os.remove(tmp_img_path)
 os.remove(tmp_pdf_path)
 st.markdown("---")
 st.markdown("💬 **Thank you for using this tool.** Please help us improve it by sharing your comments and suggestions: [https://bit.ly/raicesp](https://bit.ly/raicesp)")
+
+st.subheader("Summary of Domain Scores")
+for domain, score in domain_scores.items():
+    if score >= 8:
+        st.markdown(f"**{domain}:** :green[{score}/10 - Excellent]")
+    elif score >= 6:
+        st.markdown(f"**{domain}:** :orange[{score}/10 - Moderate]")
+    elif score >= 4:
+        st.markdown(f"**{domain}:** :orange[{score}/10 - Low]")
+    else:
+        st.markdown(f"**{domain}:** :red[{score}/10 - Critical]")
+    st.caption(f"Lowest scored question: {notes[domain] if notes[domain] else 'Not specified'}")
+
+# Bar chart of domain scores with color coding
+colors = []
+for score in domain_scores.values():
+    if score >= 8:
+        colors.append('green')
+    elif score >= 6:
+        colors.append('orange')
+    elif score >= 4:
+        colors.append('darkorange')
+    else:
+        colors.append('red')
+
+bar_fig, bar_ax = plt.subplots(figsize=(8, 4))
+bars = bar_ax.bar(domain_scores.keys(), domain_scores.values(), color=colors)
+
+# Add value labels on top of bars
+for bar, val in zip(bars, domain_scores.values()):
+    bar_ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.1, f'{val}', ha='center', va='bottom', fontsize=8)
+bar_ax.set_ylim(0, 10)
+bar_ax.set_ylabel('Score')
+bar_ax.set_title('Domain Scores Overview')
+plt.xticks(rotation=45, ha='right')
+st.pyplot(bar_fig)
 
 st.success("✅ Evaluation complete. Reports ready for download.")
