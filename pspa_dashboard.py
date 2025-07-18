@@ -1,5 +1,4 @@
 # File: pspa_dashboard.py
-# Ethiopia Patient Safety Checklist Dashboard (Final PDF Fix for Mobile & Desktop)
 
 import streamlit as st
 import pandas as pd
@@ -15,7 +14,8 @@ st.set_page_config(page_title="Ethiopia PS Checklist", layout="centered")
 st.image("https://raw.githubusercontent.com/JValMar/PSPA-Tool/main/RAICESP_eng_imresizer.jpg", width=150)
 st.title("📊 PATIENT SAFETY PROJECT ADEQUACY DASHBOARD")
 
-st.markdown("**Version: 17/07/2025.** This is a draft proposal, based on the keynote of this workshop and some ideas from PS & QI tools. Please, feel free to suggest any issues to clarify or complete this checklist: jvmartin@us.es")
+st.markdown("**Version: 17/07/2025.** This is a draft proposal, based on the keynote of this workshop and some ideas from PS & QI tools. Please, feel free to suggest any issues to clarify or complete this checklist: [https://bit.ly/raicesp](https://bit.ly/raicesp)")
+
 st.markdown("""
 📘 **Checklist Description**
 
@@ -186,12 +186,6 @@ pdf.set_font("Arial", "B", 14)
 pdf.cell(200, 10, txt="Patient Safety Project Adequacy Report", ln=1, align="C")
 
 pdf.set_font("Arial", "", 12)
-
-# Add overall summary
-average_score = round(score_df['Score'].mean(), 2)
-pdf.multi_cell(0, 10, txt=f"Overall Average Score: {average_score}/10")
-pdf.ln(5)
-
 for _, row in score_df.iterrows():
     text_block = (
         f"{row['Checklist Dimension']}: {row['Score']}/10\n"
@@ -201,12 +195,11 @@ for _, row in score_df.iterrows():
     )
     pdf.multi_cell(0, 10, txt=text_block)
 
-# Save PDF to temporary file
+# Save PDF to temporary file (Android-friendly)
 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
     tmp_pdf_path = tmp_pdf.name
 pdf.output(tmp_pdf_path)
 
-# Read PDF binary for download
 with open(tmp_pdf_path, "rb") as f:
     pdf_data = f.read()
 
