@@ -133,7 +133,7 @@ img_buffer = io.BytesIO()
 plt.savefig(img_buffer, format='png')
 img_buffer.seek(0)
 
-# PDF Generation (Android-compatible)
+# PDF Generation (with Android-friendly temp file)
 class PDF(FPDF):
     def header(self):
         self.set_font('Arial', 'B', 12)
@@ -178,15 +178,16 @@ for _, row in score_df.iterrows():
     pdf.chapter_title(row['Checklist Dimension'])
     pdf.chapter_body(body)
 
-# Save PDF to temp file and read in binary mode (Android fix)
+# Save PDF to a temporary file and then read binary content
 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
+    pdf.output(tmp_pdf.name)
     tmp_pdf_path = tmp_pdf.name
-    pdf.output(tmp_pdf_path)
 
 with open(tmp_pdf_path, "rb") as f:
     pdf_data = f.read()
 
-os.remove(tmp_pdf_path)
+# Clean up temp file
+os.unlink(tmp_pdf_path)
 
 # Excel Export
 excel_buffer = io.BytesIO()
