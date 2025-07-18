@@ -133,7 +133,7 @@ img_buffer = io.BytesIO()
 plt.savefig(img_buffer, format='png')
 img_buffer.seek(0)
 
-# PDF Generation (Android-friendly)
+# PDF Generation (Android-compatible)
 class PDF(FPDF):
     def header(self):
         self.set_font('Arial', 'B', 12)
@@ -183,12 +183,12 @@ with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
     pdf.output(tmp_pdf_path)
 
 with open(tmp_pdf_path, "rb") as f:
-    pdf_data = f.read()
-
-# Use a BytesIO object for Android compatibility
-pdf_bytes = io.BytesIO(pdf_data)
+    pdf_binary = f.read()
 
 os.remove(tmp_pdf_path)
+
+# Use binary data directly for Android compatibility
+pdf_data = pdf_binary
 
 # Excel Export
 excel_buffer = io.BytesIO()
@@ -209,7 +209,7 @@ st.download_button(
 
 st.download_button(
     label="📄 Download Report (.pdf)",
-    data=pdf_bytes,
+    data=pdf_data,
     file_name=f'{eval_date.strftime("%Y-%m-%d")}_PSPA_report_{project.replace(" ", "_")}.pdf',
     mime='application/pdf'
 )
