@@ -1,3 +1,4 @@
+# File: pspa_dashboard.py
 # Ethiopia Patient Safety Checklist Dashboard (Final PDF Fix for Mobile & Desktop)
 
 import streamlit as st
@@ -115,9 +116,7 @@ for domain, questions in domain_questions.items():
 score_df = pd.DataFrame({
     "Checklist Dimension": list(domain_scores.keys()),
     "Score": list(domain_scores.values()),
-    "Lowest Scored Question": [
-        domain_questions[dim][0] if dim not in notes else notes[dim] for dim in domain_scores.keys()
-    ],
+    "Lowest Scored Question": [domain_questions[dim][0] for dim in domain_scores.keys()],
     "Improvement Measures": [notes[dim] for dim in domain_scores.keys()],
     "Review Date": [review_dates[dim] for dim in domain_scores.keys()]
 })
@@ -142,25 +141,8 @@ img_buffer = io.BytesIO()
 plt.savefig(img_buffer, format='png')
 img_buffer.seek(0)
 
-# Export Excel Logic
-excel_buffer = io.BytesIO()
-with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
-    score_df.to_excel(writer, index=False, sheet_name='Scores')
-    workbook = writer.book
-    worksheet = writer.sheets['Scores']
-
-    # Auto-fit columns
-    for col_num, value in enumerate(score_df.columns.values):
-        column_len = max(
-            score_df[value].astype(str).map(len).max(),
-            len(value)
-        ) + 2
-        worksheet.set_column(col_num, col_num, column_len)
-
-    # Insert radar chart
-    worksheet.insert_image('H2', 'radar.png', {'image_data': img_buffer})
-
-("Summary of Domain Scores")
+# Summary of Domain Scores
+st.subheader("Summary of Domain Scores")
 for domain, score in domain_scores.items():
     if score >= 8:
         st.markdown(f"**{domain}:** :green[{score}/10 - Excellent]")
@@ -198,8 +180,6 @@ plt.xticks(rotation=45, ha='right')
 st.pyplot(bar_fig)
 
 # PDF Generation
-from fpdf import FPDF
-
 pdf = FPDF()
 pdf.add_page()
 pdf.set_font("Arial", "B", 14)
@@ -213,15 +193,13 @@ pdf.multi_cell(0, 10, txt=f"Overall Average Score: {average_score}/10")
 pdf.ln(5)
 
 for _, row in score_df.iterrows():
-    pdf.multi_cell(0, 10, txt=(
-        f"{row['Checklist Dimension']}: {row['Score']}/10
-"
-        f"Lowest: {row['Lowest Scored Question']}
-"
-        f"Improvement: {row['Improvement Measures']}
-"
+    text_block = (
+        f"{row['Checklist Dimension']}: {row['Score']}/10\n"
+        f"Lowest: {row['Lowest Scored Question']}\n"
+        f"Improvement: {row['Improvement Measures']}\n"
         f"Review: {row['Review Date']}"
-    ))
+    )
+    pdf.multi_cell(0, 10, txt=text_block)
 
 # Save PDF to temporary file
 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
@@ -233,6 +211,24 @@ with open(tmp_pdf_path, "rb") as f:
     pdf_data = f.read()
 
 os.remove(tmp_pdf_path)
+
+# Export Excel Logic
+excel_buffer = io.BytesIO()
+with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+    score_df.to_excel(writer, index=False, sheet_name='Scores')
+    workbook = writer.book
+    worksheet = writer.sheets['Scores']
+
+    # Auto-fit columns
+    for col_num, value in enumerate(score_df.columns.values):
+        column_len = max(
+            score_df[value].astype(str).map(len).max(),
+            len(value)
+        ) + 2
+        worksheet.set_column(col_num, col_num, column_len)
+
+    # Insert radar chart
+    worksheet.insert_image('H2', 'radar.png', {'image_data': img_buffer})
 
 st.download_button(
     label="📊 Download Excel (.xlsx)",
