@@ -8,6 +8,15 @@ from fpdf import FPDF
 import matplotlib.pyplot as plt
 import numpy as np
 
+# --- Simple authentication ---
+USER = "admin"
+PASSWORD = "secure123"
+user = st.sidebar.text_input("Username")
+password = st.sidebar.text_input("Password", type="password")
+if user != USER or password != PASSWORD:
+    st.error("Access denied: please enter valid credentials.")
+    st.stop()
+
 st.set_page_config(page_title="Ethiopia PS Checklist", layout="centered")
 st.image("https://raw.githubusercontent.com/JValMar/PSPA-Tool/main/RAICESP_eng_imresizer.jpg", width=150)
 st.title("📊 PATIENT SAFETY PROJECT ADEQUACY DASHBOARD")
@@ -19,13 +28,21 @@ if not project:
     project = "Unnamed Project"
     st.warning("⚠️ Please enter a project title in the sidebar to personalize your reports.")
 
-# Load previous data
-if st.sidebar.button("Load Previous Evaluation") and os.path.exists("saved_evaluations.json"):
+# Load previous data and selection
+saved_projects = []
+history = {}
+if os.path.exists("saved_evaluations.json"):
     with open("saved_evaluations.json", "r") as f:
         saved_data = json.load(f)
-    if project in saved_data:
-        st.session_state.update(saved_data[project])
+    saved_projects = list(saved_data.keys())
+    selected_project = st.sidebar.selectbox("Load Previous Project:", ["None"] + saved_projects)
+    if selected_project != "None" and st.sidebar.button("Load Project"):
+        st.session_state.update(saved_data[selected_project][-1])
+        project = selected_project
+        history = saved_data[selected_project]
         st.success(f"Evaluation data loaded for project: {project}")
+else:
+    saved_data = {}
 
 # Description
 st.markdown("""
@@ -103,43 +120,41 @@ for domain, questions in domain_questions.items():
     st.subheader(domain)
     scores = []
     for q in questions:
-        st.text_area(q, key=f"notes-{domain}-{q}")
-        st.markdown("Score the situation regarding this question from 0 (minimum) to 10 (maximum):")
-        score = st.slider("", 0, 10, 5, key=f"{domain}-{q}")
-        scores.append(score)
+        with st.container():
+            st.markdown(f"**{q}**")
+            note = st.text_area("Notes", key=f"notes-{domain}-{q}")
+            score = st.slider("Score (0-10)", 0, 10, 5, key=f"{domain}-{q}")
+            scores.append(score)
     avg_score = round(np.mean(scores), 2)
     domain_scores[domain] = avg_score
+    color = "green" if avg_score >= 8 else "orange" if avg_score >= 4 else "red"
+    st.markdown(f"**Domain Score:** :{color}[{avg_score}/10]")
     lowest_q = questions[np.argmin(scores)]
     lowest_questions[domain] = lowest_q
     st.caption(f"Lowest scored question: {lowest_q}")
     notes[domain] = st.text_area(f"✏️ Improvement Measures for {domain}", "")
     responsible[domain] = st.text_input(f"👤 Responsible for {domain}", "")
-    review_dates[domain] = next_monday_after_3_months()
-    st.text(f"Review date: {review_dates[domain]}")
+    review_dates[domain] = st.date_input(f"📅 Review Date for {domain}", next_monday_after_3_months())
 
 # General observations
 general_observations = st.text_area("📌 GENERAL OBSERVATIONS", "")
 
 # Save current evaluation
 if st.sidebar.button("Save Current Evaluation"):
-    data_to_save = {
-        project: {
-            "objectives": objectives,
-            "scores": domain_scores,
-            "notes": notes,
-            "responsible": responsible,
-            "review_dates": {k: str(v) for k, v in review_dates.items()},
-            "observations": general_observations
-        }
+    current_data = {
+        "objectives": objectives,
+        "scores": domain_scores,
+        "notes": notes,
+        "responsible": responsible,
+        "review_dates": {k: str(v) for k, v in review_dates.items()},
+        "observations": general_observations,
+        "date": str(date.today())
     }
-    if os.path.exists("saved_evaluations.json"):
-        with open("saved_evaluations.json", "r") as f:
-            existing_data = json.load(f)
-    else:
-        existing_data = {}
-    existing_data.update(data_to_save)
+    if project not in saved_data:
+        saved_data[project] = []
+    saved_data[project].append(current_data)
     with open("saved_evaluations.json", "w") as f:
-        json.dump(existing_data, f)
+        json.dump(saved_data, f)
     st.success(f"Evaluation for project '{project}' saved.")
 
 # DataFrame
@@ -169,6 +184,25 @@ img_buffer = io.BytesIO()
 plt.savefig(img_buffer, format='png')
 img_buffer.seek(0)
 
+# Previous evaluations comparison
+trend_buffer = None
+if history:
+    st.subheader(f"Historical Evaluations for {project}")
+    hist_df = pd.DataFrame(history)
+    st.dataframe(hist_df)
+    if len(history) > 1:
+        avg_scores = [sum(h['scores'].values())/len(h['scores']) for h in history]
+        dates = [h['date'] for h in history]
+        trend_fig, trend_ax = plt.subplots()
+        trend_ax.plot(dates, avg_scores, marker='o')
+        trend_ax.set_title('Evaluation Trend')
+        trend_ax.set_ylabel('Average Score')
+        trend_ax.set_ylim(0, 10)
+        trend_buffer = io.BytesIO()
+        plt.savefig(trend_buffer, format='png')
+        trend_buffer.seek(0)
+        st.pyplot(trend_fig)
+
 # Summary
 st.subheader("FINAL SUMMARY (ALL 7 DOMAINS)")
 st.dataframe(score_df)
@@ -184,11 +218,11 @@ for i, v in enumerate(domain_scores.values()):
     bar_ax.text(i, v + 0.2, str(v), ha='center')
 st.pyplot(bar_fig)
 
-# PDF Report with all details
+# PDF Report with radar and trend chart
 class PDF(FPDF):
     def header(self):
         self.set_font('Arial', 'B', 12)
-        self.cell(0, 10, "PATIENT SAFETY PROJECT ADEQUACY DASHBOARD", 0, 1, 'C')
+        self.cell(0, 10, f"PATIENT SAFETY PROJECT ADEQUACY DASHBOARD - {project}", 0, 1, 'C')
     def footer(self):
         self.set_y(-15)
         self.set_font('Arial', 'I', 8)
@@ -215,6 +249,24 @@ pdf.cell(0, 8, "Summary of Scores by Dimension:", ln=1)
 for _, row in score_df.iterrows():
     pdf.cell(0, 6, f"{row['Checklist Dimension']:<35} {row['Score']}/10 | Review: {row['Review Date']}", ln=1)
 
+# Insert radar chart
+with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_img:
+    tmp_img.write(img_buffer.getvalue())
+    radar_path = tmp_img.name
+pdf.image(radar_path, x=40, w=130)
+os.unlink(radar_path)
+
+# Insert trend chart if exists
+if trend_buffer:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp_trend:
+        tmp_trend.write(trend_buffer.getvalue())
+        trend_path = tmp_trend.name
+    pdf.add_page()
+    pdf.set_font('Arial', 'B', 11)
+    pdf.cell(0, 8, "Evaluation Trend:", ln=1)
+    pdf.image(trend_path, x=30, w=150)
+    os.unlink(trend_path)
+
 pdf.ln(5)
 for _, row in score_df.iterrows():
     pdf.chapter_title(row['Checklist Dimension'])
@@ -235,7 +287,7 @@ with open(tmp_pdf_path, "rb") as f:
     pdf_data = f.read()
 os.unlink(tmp_pdf_path)
 
-# Excel Export with radar chart
+# Excel Export with radar and trend chart
 excel_buffer = io.BytesIO()
 with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
     score_df.to_excel(writer, index=False, sheet_name='Scores')
@@ -243,6 +295,9 @@ with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
     for col_num, value in enumerate(score_df.columns.values):
         worksheet.set_column(col_num, col_num, 25)
     worksheet.insert_image('H2', 'radar.png', {'image_data': img_buffer})
+    if trend_buffer:
+        trend_sheet = writer.book.add_worksheet('Trend')
+        trend_sheet.insert_image('B2', 'trend.png', {'image_data': trend_buffer})
 
 # Download buttons
 st.download_button(
