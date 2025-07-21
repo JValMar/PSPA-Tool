@@ -6,7 +6,7 @@
    - Copy your `pspa_dashboard.py` and any supporting files (like `config.json`) into the repository folder.
 
 2. **Add Requirements File:**
-   - Create a file named `requirements.txt` in the repository root with:
+   - Create a file named `requirements.txt` in the repository root with the following content:
      ```
      streamlit
      pandas
@@ -16,6 +16,7 @@
      ```
 
 3. **Push to GitHub:**
+   Use the following commands:
    ```bash
    git add .
    git commit -m "Initial commit with pspa_dashboard"
@@ -31,11 +32,11 @@
 
 5. **Access and Share:**
    - Once deployed, Streamlit will provide a shareable URL (e.g., `https://<your-app>.streamlit.app`).
-   - Share this link with others; they'll use the login credentials set in the app.
+   - Share this link with others. They will use the login credentials set in the app.
 
 6. **Future Updates:**
-   - Edit your local code and push changes with `git commit` and `git push`. Streamlit Cloud auto-redeploys the app.
+   - Edit your local code and push changes with `git commit` and `git push`. Streamlit Cloud will automatically redeploy the app.
 
 ---
 
-Would you like me to create a **ready-to-use `requirements.txt` and a sample README.md** for this project?
+Would you like me to create a **ready-to-use `requirements.txt`** and a **sample `README.md`** for this project?
