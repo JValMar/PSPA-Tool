@@ -3,7 +3,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import date, timedelta, datetime
-import io, tempfile, os
+import io, tempfile, os, json
 from fpdf import FPDF
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,12 +12,20 @@ st.set_page_config(page_title="Ethiopia PS Checklist", layout="centered")
 st.image("https://raw.githubusercontent.com/JValMar/PSPA-Tool/main/RAICESP_eng_imresizer.jpg", width=150)
 st.title("📊 PATIENT SAFETY PROJECT ADEQUACY DASHBOARD")
 
-# Project Objectives
+# Project Objectives and Save/Load
 project = st.sidebar.text_input("Enter Project Title:")
 objectives = st.text_area("🎯 PROJECT OBJECTIVES", "")
 if not project:
     project = "Unnamed Project"
     st.warning("⚠️ Please enter a project title in the sidebar to personalize your reports.")
+
+# Load previous data
+if st.sidebar.button("Load Previous Evaluation") and os.path.exists("saved_evaluations.json"):
+    with open("saved_evaluations.json", "r") as f:
+        saved_data = json.load(f)
+    if project in saved_data:
+        st.session_state.update(saved_data[project])
+        st.success(f"Evaluation data loaded for project: {project}")
 
 # Description
 st.markdown("""
@@ -111,6 +119,28 @@ for domain, questions in domain_questions.items():
 
 # General observations
 general_observations = st.text_area("📌 GENERAL OBSERVATIONS", "")
+
+# Save current evaluation
+if st.sidebar.button("Save Current Evaluation"):
+    data_to_save = {
+        project: {
+            "objectives": objectives,
+            "scores": domain_scores,
+            "notes": notes,
+            "responsible": responsible,
+            "review_dates": {k: str(v) for k, v in review_dates.items()},
+            "observations": general_observations
+        }
+    }
+    if os.path.exists("saved_evaluations.json"):
+        with open("saved_evaluations.json", "r") as f:
+            existing_data = json.load(f)
+    else:
+        existing_data = {}
+    existing_data.update(data_to_save)
+    with open("saved_evaluations.json", "w") as f:
+        json.dump(existing_data, f)
+    st.success(f"Evaluation for project '{project}' saved.")
 
 # DataFrame
 score_df = pd.DataFrame({
