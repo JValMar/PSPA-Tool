@@ -4,38 +4,71 @@ import numpy as np
 import matplotlib.pyplot as plt
 import io
 from fpdf import FPDF
-from datetime import date, timedelta, datetime
+from datetime import date, datetime
 
-# Debug startup
 st.write('App started')
 
-# Simplified login for testing
-def login_section():
-    st.sidebar.header("Login")
-    username = st.sidebar.text_input("Username")
-    password = st.sidebar.text_input("Password", type="password")
-    if st.sidebar.button("Login"):
+# Simple user-specific sessions
+if "current_user" not in st.session_state:
+    st.session_state["current_user"] = None
+
+# Dictionary to store evaluations per user
+if "user_data" not in st.session_state:
+    st.session_state["user_data"] = {}
+
+# Login form
+if not st.session_state["current_user"]:
+    st.header("Welcome to the PSPA Dashboard")
+    st.info("Enter your credentials to access your evaluations.")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        # For demo, only admin/secure123 is valid
         if username == "admin" and password == "secure123":
-            st.session_state["logged_in"] = True
-            st.success("Login successful.")
+            st.session_state["current_user"] = username
+            if username not in st.session_state["user_data"]:
+                st.session_state["user_data"][username] = {}
+            st.success(f"Welcome, {username}!")
         else:
             st.error("Incorrect username or password.")
+else:
+    st.sidebar.write(f"Logged in as: {st.session_state['current_user']}")
+    if st.sidebar.button("Logout"):
+        st.session_state["current_user"] = None
+        st.experimental_rerun()
 
-if "logged_in" not in st.session_state:
-    login_section()
-
-if st.session_state.get("logged_in"):
     st.title("Patient Safety Project Adequacy Dashboard")
-    project = st.text_input("Project Name")
-    objectives = st.text_area("Project Objectives")
 
-    # Example domain scores
+    # Dropdown to select existing projects
+    user_projects = list(st.session_state["user_data"][st.session_state["current_user"]].keys())
+    selected_project = st.selectbox("Select an existing project (or type new):", ["<New Project>"] + user_projects)
+
+    if selected_project != "<New Project>":
+        project_data = st.session_state["user_data"][st.session_state["current_user"]][selected_project]
+        project = st.text_input("Project Name", selected_project)
+        objectives = st.text_area("Project Objectives", project_data["objectives"])
+        previous_scores = project_data["scores"]
+    else:
+        project = st.text_input("Project Name")
+        objectives = st.text_area("Project Objectives")
+        previous_scores = {}
+
     domains = ["Leadership", "Staffing", "Baseline", "Design", "Change Mgmt", "Monitoring", "Sustainability"]
-    scores = {d: st.slider(f"Score for {d}", 0, 10, 5) for d in domains}
+    scores = {}
+    for d in domains:
+        default_value = previous_scores.get(d, 5)
+        scores[d] = st.slider(f"Score for {d}", 0, 10, default_value, key=f"{st.session_state['current_user']}_{d}")
+
     df = pd.DataFrame(list(scores.items()), columns=["Domain", "Score"])
     st.dataframe(df)
 
-    # Generate radar chart
+    # Save user data for this project
+    st.session_state["user_data"][st.session_state["current_user"]][project] = {
+        "objectives": objectives,
+        "scores": scores,
+        "date": datetime.now().strftime('%Y-%m-%d %H:%M')
+    }
+
     labels = list(scores.keys())
     values = list(scores.values())
     values += values[:1]
@@ -49,7 +82,6 @@ if st.session_state.get("logged_in"):
     ax.set_xticklabels(labels)
     st.pyplot(fig)
 
-    # PDF generation using buffer
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", 'B', 16)
@@ -61,6 +93,4 @@ if st.session_state.get("logged_in"):
 
     pdf_buffer = io.BytesIO()
     pdf.output(pdf_buffer)
-    pdf_data = pdf_buffer.getvalue()
-
-    st.download_button("Download PDF", data=pdf_data, file_name="pspa_report.pdf", mime="application/pdf")
+    st.download_button("Download PDF", data=pdf_buffer.getvalue(), file_name=f"pspa_report_{st.session_state['current_user']}.pdf", mime="application/pdf")
