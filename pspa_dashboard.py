@@ -112,7 +112,7 @@ for domain, qs in domains.items():
     min_questions = [f"{domain.split('.')[0]}.{i+1} {qs[i]}" for i, s in enumerate(scores) if s == min_score_local]
     lowest_questions[domain] = ", ".join(min_questions)
     st.markdown(f"<div style='background-color:{ranking_colors[ranking]}; padding:4px; border-radius:4px;'>"
-                f"<b>Domain Score:</b> {avg_score:.1f}/10 - {ranking}<br>"
+                f"<span style='color:black;'><b>Domain Score:</b> {avg_score:.1f}/10 - {ranking}</span><br>"
                 f"<span style='color:#1a75ff; font-weight:bold;'>Lowest Question(s):</span> "
                 f"<span style='color:#800000;'>{lowest_questions[domain]}</span></div>", unsafe_allow_html=True)
     improvements[domain] = st.text_area(f"Improvement Action for {domain}", key=f"improve-{domain}")
