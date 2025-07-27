@@ -96,7 +96,10 @@ for domain, questions in base_domain_questions.items():
         })
     avg_score = round(np.mean(scores), 1)
     domain_scores[domain] = avg_score
-    lowest_questions[domain] = questions[np.argmin(scores)]
+    # Determine lowest questions (handle ties)
+    min_score = min(scores)
+    lowest_qs = [f"{domain.split('.')[0]}.{j+1} {questions[j]}" for j, s in enumerate(scores) if s == min_score]
+    lowest_questions[domain] = ", ".join(lowest_qs)
     st.markdown(f"**Domain Score:** {avg_score:.1f}/10")
     if avg_score < 2:
         grade = 'Very Low'; color = 'red'
@@ -109,7 +112,8 @@ for domain, questions in base_domain_questions.items():
     else:
         grade = 'Excellent'; color = 'green'
     st.markdown(f"<p style='color:{color}; font-weight:bold;'>Domain Score Rank: {grade}</p>", unsafe_allow_html=True)
-    st.caption(f"Lowest scored question: {lowest_questions[domain]}")
+    st.markdown(f"<p style='color:red;'><b>Lowest scored questions:</b> {lowest_questions[domain]}</p>", unsafe_allow_html=True)
+
     improvement_measures[domain] = st.text_area(f"Improvement Measures for {domain}", key=f"improve-{domain}")
     responsible[domain] = st.text_input(f"Responsible for {domain}", key=f"resp-{domain}")
     review_date[domain] = st.date_input(f"Review Date for {domain}", value=date.today() + timedelta(days=90), key=f"date-{domain}")
@@ -120,6 +124,7 @@ df_summary = pd.DataFrame({
     "Domain": list(domain_scores.keys()),
     "Score": [round(s, 1) for s in domain_scores.values()],
     "Lowest Question": [lowest_questions[d] for d in domain_scores],
+    "Lowest Questions": [lowest_questions[d] for d in domain_scores],
     "Improvement Action": [improvement_measures[d] for d in domain_scores],
     "Responsible": [responsible[d] for d in domain_scores],
     "Review Date": [review_date[d] for d in domain_scores]
