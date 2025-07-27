@@ -6,15 +6,17 @@ import io
 from fpdf import FPDF
 import matplotlib.pyplot as plt
 import numpy as np
+from pspa_utils import get_ranking, ranking_colors
 
 # === HEADER ===
 st.image("https://raw.githubusercontent.com/JValMar/PSPA-Tool/main/RAICESP_eng_imresizer.jpg", width=150)
 st.title("📊 PATIENT SAFETY PROJECT ADEQUACY DASHBOARD")
 st.markdown("**Version 1.1 - 27/07/2025**")
 st.markdown(
-    "Welcome to the **PSPA Tool**. This tool helps you evaluate patient safety projects, "
-    "identify areas of improvement, and plan and track improvement actions with subsequent project reviews. "
-    "You can generate professional PDF and Excel reports with visual analytics."
+    "Welcome to the **PSPA Tool** (Version 1.1 - 27/07/2025). "
+    "This tool is designed to support a structured evaluation of patient safety projects. "
+    "It enables **identification of areas of improvement**, along with the **planning, tracking, and review of improvement actions**. "
+    "Users can generate professional PDF and Excel reports with radar charts, detailed notes, and actionable summaries to guide project reviews."
 )
 
 # === PROJECT INFO ===
@@ -70,55 +72,31 @@ domains = {
 domain_scores, lowest_questions, improvements, responsible, review_date = {}, {}, {}, {}, {}
 questions_data = []
 
-def get_ranking(score):
-    if score < 2: return "Very Low"
-    elif score < 4: return "Low"
-    elif score < 6: return "Average"
-    elif score < 8: return "High"
-    else: return "Very High"
-
-from pspa_utils import get_ranking, ranking_colors
-
-# Eliminamos duplicado de definición de ranking_colors (importado)
-
-#ranking_colors = {
-    "Very Low": "#ff9999",
-    "Low": "#ffd699",
-    "Average": "#ffff99",
-    "High": "#ccffcc",
-    "Very High": "#cce0ff"
-}
-
 # === SELF-ASSESSMENT ===
 st.header("Self-Assessment")
 for domain, qs in domains.items():
-    scores = []
-    min_score_local = 10
     st.markdown("---", unsafe_allow_html=True)
     st.markdown(f"<h3 style='background-color:#003366; color:white; padding:8px; border-radius:6px; margin-top:12px;'>{domain}</h3>", unsafe_allow_html=True)
+    scores = []
+    min_score_local = 10
     for i, q in enumerate(qs, start=1):
         q_num = f"{domain.split('.')[0]}.{i}"
         color_q_num = '#1a75ff'
         st.markdown(f"<p><span style='color:{color_q_num}; font-weight:bold;'>{q_num}</span> {q}</p>", unsafe_allow_html=True)
-        notes = st.text_area(f"Notes for {q}", key=f"notes-{domain}-{i}")
-        score = st.slider(f"Score (0-10)", 0, 10, 5, key=f"{domain}-{i}")
-        # Color numeración y texto si es la más baja
-        color_q_num = "#1a75ff"
-        color_q_text = "black"
+        notes = st.text_area("Notes", key=f"notes-{domain}-{i}")
+        score = st.slider("Score (0-10)", 0, 10, 5, key=f"{domain}-{i}")
         scores.append(score)
         min_score_local = min(min_score_local, score)
         questions_data.append({"Domain": domain, "Question": f"{q_num} {q}", "Score": score, "Notes": notes})
-        color_q_num = '#1a75ff'
-        st.markdown(f"<p><span style='color:{color_q_num}; font-weight:bold;'>{q_num}</span> {q}</p>", unsafe_allow_html=True)
     avg_score = round(np.mean(scores), 1)
     domain_scores[domain] = avg_score
     ranking = get_ranking(avg_score)
     min_questions = [f"{domain.split('.')[0]}.{i+1} {qs[i]}" for i, s in enumerate(scores) if s == min_score_local]
     lowest_questions[domain] = ", ".join(min_questions)
     st.markdown(f"<div style='background-color:{ranking_colors[ranking]}; padding:4px; border-radius:4px;'>"
-                f"<b>Domain Score:</b> {avg_score:.1f}/10 - {ranking}</div>", unsafe_allow_html=True)
-    st.markdown(f"<p><span style='color:#1a75ff; font-weight:bold;'>Lowest Question(s):</span> "
-                f"<span style='color:#800000;'>{lowest_questions[domain]}</span></p>", unsafe_allow_html=True)
+                f"<b>Domain Score:</b> {avg_score:.1f}/10 - {ranking}<br>"
+                f"<span style='color:#1a75ff; font-weight:bold;'>Lowest Question(s):</span> "
+                f"<span style='color:#800000;'>{lowest_questions[domain]}</span></div>", unsafe_allow_html=True)
     improvements[domain] = st.text_area(f"Improvement Action for {domain}", key=f"improve-{domain}")
     responsible[domain] = st.text_input(f"Responsible for {domain}", key=f"resp-{domain}")
     review_date[domain] = st.date_input(f"Review Date", value=date.today() + timedelta(days=90), key=f"date-{domain}")
@@ -138,12 +116,8 @@ def color_code(value):
     return f"background-color:{ranking_colors[get_ranking(value)]}; color:black"
 
 def highlight_low_questions(val):
-    # Color azul para número, rojo oscuro para texto
     if val and isinstance(val, str):
-        parts = val.split(" ", 1)
-        if len(parts) > 1:
-            return "font-weight:bold; color:#800000"
-        return "color:#1a75ff; font-weight:bold"
+        return "color:#800000; font-weight:bold;"
     return ""
 
 styled_summary = df_summary.style.applymap(color_code, subset=["Score"]).applymap(highlight_low_questions, subset=["Lowest Questions"])
@@ -191,7 +165,10 @@ pdf.cell(0, 10, "Detailed Questions and Notes", ln=True)
 pdf.set_font("Arial", '', 10)
 for row in questions_data:
     min_local = min([q['Score'] for q in questions_data if q['Domain'] == row['Domain']])
-    pdf.set_text_color(255, 0, 0) if row['Score'] == min_local else pdf.set_text_color(0, 0, 0)
+    if row['Score'] == min_local:
+        pdf.set_text_color(255, 0, 0)
+    else:
+        pdf.set_text_color(0, 0, 0)
     pdf.multi_cell(0, 6, f"{row['Question']} | Score: {row['Score']:.1f}\nNotes: {row['Notes']}\n")
 pdf.set_y(-20)
 pdf.set_font("Arial", 'I', 8)
