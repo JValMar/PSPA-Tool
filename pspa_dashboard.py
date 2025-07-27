@@ -94,6 +94,7 @@ for domain, qs in domains.items():
     st.markdown(f"<h3 style='background-color:#003366; color:white; padding:8px; border-radius:6px; margin-top:12px;'>{domain}</h3>", unsafe_allow_html=True)
     for i, q in enumerate(qs, start=1):
         q_num = f"{domain.split('.')[0]}.{i}"
+        color_q_num = '#1a75ff'
         st.markdown(f"<p><span style='color:{color_q_num}; font-weight:bold;'>{q_num}</span> {q}</p>", unsafe_allow_html=True)
         notes = st.text_area(f"Notes for {q}", key=f"notes-{domain}-{i}")
         score = st.slider(f"Score (0-10)", 0, 10, 5, key=f"{domain}-{i}")
@@ -103,6 +104,7 @@ for domain, qs in domains.items():
         scores.append(score)
         min_score_local = min(min_score_local, score)
         questions_data.append({"Domain": domain, "Question": f"{q_num} {q}", "Score": score, "Notes": notes})
+        color_q_num = '#1a75ff'
         st.markdown(f"<p><span style='color:{color_q_num}; font-weight:bold;'>{q_num}</span> {q}</p>", unsafe_allow_html=True)
     avg_score = round(np.mean(scores), 1)
     domain_scores[domain] = avg_score
