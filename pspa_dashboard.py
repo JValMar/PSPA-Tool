@@ -7,17 +7,24 @@ from fpdf import FPDF
 import matplotlib.pyplot as plt
 import numpy as np
 
-# ----------- Header -----------
+# --- Header ---
 st.image("https://raw.githubusercontent.com/JValMar/PSPA-Tool/main/RAICESP_eng_imresizer.jpg", width=150)
 st.title("📊 PATIENT SAFETY PROJECT ADEQUACY DASHBOARD")
 st.markdown("**Version: 22/07/2025**")
-st.markdown("Welcome! Use this dashboard to assess and document the adequacy of your patient safety projects.")
+st.markdown(
+    """
+    Welcome to the **Patient Safety Project Adequacy (PSPA) Dashboard**.
 
-# ----------- Project Information -----------
+    This tool helps healthcare teams evaluate patient safety projects, 
+    identify areas for improvement, and generate reports (PDF and Excel).
+    """
+)
+
+# --- Project Information ---
 project_name = st.text_input("Project Name")
 project_objectives = st.text_area("🎯 Project Objectives")
 
-# ----------- Domain Questions -----------
+# --- Domains and Questions ---
 base_domain_questions = {
     "1. LEADERSHIP & GOVERNANCE": [
         "Are PS responsibilities clearly assigned?",
@@ -63,12 +70,15 @@ base_domain_questions = {
     ]
 }
 
-# ----------- Evaluation -----------
-domain_scores, lowest_questions, improvement_measures, responsible, review_date = {}, {}, {}, {}, {}
+domain_scores = {}
+lowest_questions = {}
+improvement_measures = {}
+responsible = {}
+review_date = {}
 
 st.header("Self-Assessment by Domain")
 for domain, questions in base_domain_questions.items():
-    st.subheader(domain)
+    st.markdown(f"<h3 style='color:#1a73e8;'>{domain}</h3>", unsafe_allow_html=True)
     scores = []
     for i, q in enumerate(questions, start=1):
         st.markdown(f"**{domain.split('.')[0]}.{i} {q}**")
@@ -84,7 +94,7 @@ for domain, questions in base_domain_questions.items():
     responsible[domain] = st.text_input(f"Responsible for {domain}", key=f"resp-{domain}")
     review_date[domain] = st.date_input(f"Review Date for {domain}", value=date.today() + timedelta(days=90), key=f"date-{domain}")
 
-# ----------- Summary -----------
+# --- Final Summary ---
 st.subheader("Final Summary")
 df_summary = pd.DataFrame({
     "Domain": list(domain_scores.keys()),
@@ -95,18 +105,14 @@ df_summary = pd.DataFrame({
 })
 
 def color_score(val):
-    if val >= 8:
-        return 'background-color: #a6f1a6'
-    elif val >= 6:
-        return 'background-color: #fff7a6'
-    elif val >= 4:
-        return 'background-color: #ffd9a6'
-    else:
-        return 'background-color: #f1a6a6'
+    if val >= 8: return 'background-color: #34c759; color: black;'
+    elif val >= 6: return 'background-color: #ffeb3b; color: black;'
+    elif val >= 4: return 'background-color: #ff9800; color: black;'
+    else: return 'background-color: #f44336; color: white;'
 
 st.dataframe(df_summary.style.applymap(color_score, subset=['Score']))
 
-# ----------- Radar Chart -----------
+# --- Radar Chart ---
 labels = list(domain_scores.keys())
 scores_list = list(domain_scores.values())
 angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False).tolist()
@@ -121,7 +127,7 @@ ax.set_xticklabels(labels, size=8)
 ax.set_title("Patient Safety Project Radar", va='bottom')
 st.pyplot(fig)
 
-# ----------- PDF Export -----------
+# --- PDF Export ---
 pdf = FPDF()
 pdf.add_page()
 pdf.set_font("Arial", 'B', 14)
@@ -136,11 +142,12 @@ for domain in domain_scores:
 pdf_data = pdf.output(dest='S').encode('latin-1')
 st.download_button("📄 Download PDF Report", pdf_data, file_name=f"{date.today()}_{project_name.replace(' ', '_')}_PSPA_Report.pdf", mime="application/pdf")
 
-# ----------- Excel Export -----------
+# --- Excel Export ---
 excel_buffer = io.BytesIO()
-df_summary.to_excel(excel_buffer, index=False, sheet_name='Summary')
+with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+    df_summary.to_excel(writer, index=False, sheet_name='Summary')
 st.download_button("📊 Download Excel (.xlsx)", excel_buffer.getvalue(), file_name=f"{date.today()}_{project_name.replace(' ', '_')}_PSPA_Report.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-# ----------- Feedback -----------
+# --- Feedback ---
 st.markdown("---")
 st.info("💬 **Thank you for using this tool. Please help us improve by sharing comments or suggestions at [https://bit.ly/raicesp](https://bit.ly/raicesp)**")
