@@ -7,7 +7,8 @@ from fpdf import FPDF
 import matplotlib.pyplot as plt
 import numpy as np
 
-# --- Header ---
+
+# === Header ===
 st.image("https://raw.githubusercontent.com/JValMar/PSPA-Tool/main/RAICESP_eng_imresizer.jpg", width=150)
 st.title("📊 PATIENT SAFETY PROJECT ADEQUACY DASHBOARD")
 st.markdown("**Version: 22/07/2025**")
@@ -21,11 +22,13 @@ st.markdown(
     """
 )
 
-# --- Project Information ---
+
+# === Project Information ===
 project_name = st.text_input("Project Name")
 project_objectives = st.text_area("🎯 Project Objectives")
 
-# --- Domains and Questions ---
+
+# === Domains and Questions ===
 base_domain_questions = {
     "1. LEADERSHIP & GOVERNANCE": [
         "Are PS responsibilities clearly assigned?",
@@ -96,19 +99,36 @@ for domain, questions in base_domain_questions.items():
         })
     avg_score = round(np.mean(scores), 1)
     domain_scores[domain] = avg_score
-    lowest_questions[domain] = questions[np.argmin(scores)]
-    st.markdown(f"**Domain Score:** {avg_score}/10")
-    st.caption(f"Lowest scored question: {lowest_questions[domain]}")
+    # Determine lowest questions (handle ties)
+    min_score = min(scores)
+    lowest_qs = [f"{domain.split('.')[0]}.{j+1} {questions[j]}" for j, s in enumerate(scores) if s == min_score]
+    lowest_questions[domain] = ", ".join(lowest_qs)
+    st.markdown(f"**Domain Score:** {avg_score:.1f}/10")
+    if avg_score < 2:
+        grade = 'Very Low'; color = 'red'
+    elif avg_score < 4:
+        grade = 'Low'; color = 'orange'
+    elif avg_score < 6:
+        grade = 'Average'; color = 'yellow'
+    elif avg_score < 8:
+        grade = 'High'; color = 'lightgreen'
+    else:
+        grade = 'Excellent'; color = 'green'
+    st.markdown(f"<p style='color:{color}; font-weight:bold;'>Domain Score Rank: {grade}</p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color:red;'><b>Lowest scored questions:</b> {lowest_questions[domain]}</p>", unsafe_allow_html=True)
+
     improvement_measures[domain] = st.text_area(f"Improvement Measures for {domain}", key=f"improve-{domain}")
     responsible[domain] = st.text_input(f"Responsible for {domain}", key=f"resp-{domain}")
     review_date[domain] = st.date_input(f"Review Date for {domain}", value=date.today() + timedelta(days=90), key=f"date-{domain}")
 
-# --- Final Summary ---
+
+# === Final Summary ===
 st.subheader("Final Summary")
 df_summary = pd.DataFrame({
     "Domain": list(domain_scores.keys()),
-    "Score": list(domain_scores.values()),
+    "Score": [round(s, 1) for s in domain_scores.values()],
     "Lowest Question": [lowest_questions[d] for d in domain_scores],
+    "Lowest Questions": [lowest_questions[d] for d in domain_scores],
     "Improvement Action": [improvement_measures[d] for d in domain_scores],
     "Responsible": [responsible[d] for d in domain_scores],
     "Review Date": [review_date[d] for d in domain_scores]
@@ -122,7 +142,8 @@ def color_score(val):
 
 st.dataframe(df_summary.style.applymap(color_score, subset=['Score']))
 
-# --- Radar Chart ---
+
+# === Radar Chart ===
 labels = list(domain_scores.keys())
 scores_list = list(domain_scores.values())
 angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False).tolist()
@@ -141,54 +162,85 @@ plt.savefig(img_buffer, format='png')
 img_buffer.seek(0)
 st.pyplot(fig)
 
-# --- PDF Export ---
+
+# === PDF Export ===
 pdf = FPDF()
 pdf.add_page()
 pdf.set_font("Arial", 'B', 14)
 pdf.cell(0, 10, "Patient Safety Project Adequacy Report", ln=True, align="C")
 pdf.set_font("Arial", '', 12)
-pdf.multi_cell(0, 10, f"Project: {project_name}\nObjectives: {project_objectives}\nDate: {date.today()}\n")
+pdf.multi_cell(0, 10, f"Project: {project_name}
+Objectives: {project_objectives}
+Date: {date.today()}
+")
+
+# Radar chart
+tmp_img = "radar_chart.png"
+with open(tmp_img, "wb") as f:
+    f.write(img_buffer.getvalue())
+pdf.image(tmp_img, x=40, w=130)
+pdf.ln(85)
 
 pdf.set_font("Arial", 'B', 12)
 pdf.cell(0, 10, "Summary of Scores by Domain:", ln=True)
 for domain in domain_scores:
     pdf.set_font("Arial", '', 11)
-    pdf.multi_cell(0, 8, f"{domain}: {domain_scores[domain]}/10\nLowest: {lowest_questions[domain]}\nImprovement Action: {improvement_measures[domain]}\nResponsible: {responsible[domain]} | Review Date: {review_date[domain]}")
+    pdf.multi_cell(0, 8, f"{domain}: {domain_scores[domain]:.1f}/10
+Lowest: {lowest_questions[domain]}
+Improvement Action: {improvement_measures[domain]}
+Responsible: {responsible[domain]} | Review Date: {review_date[domain]}")
+    pdf.ln(3)
 
-tmp_img = "radar_chart.png"
-with open(tmp_img, "wb") as f:
-    f.write(img_buffer.getvalue())
-pdf.image(tmp_img, x=40, w=130)
-
-# Add detailed questions
+# Detailed questions
 pdf.add_page()
 pdf.set_font("Arial", 'B', 12)
 pdf.cell(0, 10, "Detailed Questions and Scores", ln=True)
 pdf.set_font("Arial", '', 10)
 for q in questions_data:
-    pdf.multi_cell(0, 8, f"{q['Question']} - Score: {q['Score']}\nNotes: {q['Notes']}\n")
+    pdf.multi_cell(0, 8, f"{q['Question']} - Score: {q['Score']}
+Notes: {q['Notes']}
+")
+    pdf.ln(2)
 
+# Footer
 pdf.set_y(-20)
 pdf.set_font("Arial", 'I', 8)
-pdf.multi_cell(0, 8, f"Downloaded on {datetime.now().strftime('%Y-%m-%d %H:%M')}\nThank you for using this tool. Suggestions: https://bit.ly/raicesp")
+pdf.multi_cell(0, 8, f"Downloaded on {datetime.now().strftime('%Y-%m-%d %H:%M')}
+Thank you for using this tool. Suggestions: https://bit.ly/raicesp")
 
 pdf_data = pdf.output(dest='S').encode('latin-1')
-st.download_button("📄 Download PDF Report", pdf_data, file_name=f"{date.today()}_{project_name.replace(' ', '_')}_PSPA_Report.pdf", mime="application/pdf")
+st.download_button(
+    "📄 Download PDF Report",
+    pdf_data,
+    file_name=f"{date.today()}_{project_name.replace(' ', '_')}_PSPA_Report.pdf",
+    mime="application/pdf"
+)
 
-# --- Excel Export ---
-df_questions = pd.DataFrame(questions_data)
+
+# === Excel Export ===
 excel_buffer = io.BytesIO()
+df_questions = pd.DataFrame(questions_data)
 with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+    # Write summary sheet
     df_summary.to_excel(writer, index=False, sheet_name='Summary')
-    df_questions.to_excel(writer, index=False, sheet_name='Questions')
-    worksheet = writer.sheets['Summary']
+    summary_ws = writer.sheets['Summary']
     for idx, col in enumerate(df_summary.columns):
-        col_len = max(df_summary[col].astype(str).map(len).max(), len(col))
-        worksheet.set_column(idx, idx, col_len + 2)
-    worksheet.insert_image('H2', 'radar_chart.png', {'image_data': img_buffer})
+        col_width = max(df_summary[col].astype(str).map(len).max(), len(col)) + 2
+        summary_ws.set_column(idx, idx, col_width)
 
-st.download_button("📊 Download Excel (.xlsx)", excel_buffer.getvalue(), file_name=f"{date.today()}_{project_name.replace(' ', '_')}_PSPA_Report.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    # Insert radar chart
+    summary_ws.insert_image('H2', 'radar_chart.png', {'image_data': img_buffer})
 
-# --- Feedback ---
-st.markdown("---")
-st.info("💬 **Thank you for using this tool. Please help us improve by sharing comments or suggestions at [https://bit.ly/raicesp](https://bit.ly/raicesp)**")
+    # Write questions sheet
+    df_questions.to_excel(writer, index=False, sheet_name='Questions')
+    questions_ws = writer.sheets['Questions']
+    for idx, col in enumerate(df_questions.columns):
+        col_width = max(df_questions[col].astype(str).map(len).max(), len(col)) + 2
+        questions_ws.set_column(idx, idx, col_width)
+
+st.download_button(
+    "📊 Download Excel (.xlsx)",
+    excel_buffer.getvalue(),
+    file_name=f"{date.today()}_{project_name.replace(' ', '_')}_PSPA_Report.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
