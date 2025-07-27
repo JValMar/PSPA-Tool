@@ -157,25 +157,53 @@ plt.savefig(img_buffer, format='png')
 img_buffer.seek(0)
 st.pyplot(fig)
 
+
 # --- PDF Export ---
 pdf = FPDF()
 pdf.add_page()
 pdf.set_font("Arial", 'B', 14)
 pdf.cell(0, 10, "Patient Safety Project Adequacy Report", ln=True, align="C")
 pdf.set_font("Arial", '', 12)
-pdf.multi_cell(0, 10, f"Project: {project_name}\nObjectives: {project_objectives}\nDate: {date.today()}\n")
-pdf.set_font("Arial", 'B', 12)
-pdf.cell(0, 10, "Summary of Scores by Domain:", ln=True)
-for domain in domain_scores:
-    pdf.set_font("Arial", '', 11)
-    pdf.multi_cell(0, 8, f"{domain}: {domain_scores[domain]:.1f}/10\nLowest: {lowest_questions[domain]}\nImprovement Action: {improvement_measures[domain]}\nResponsible: {responsible[domain]} | Review Date: {review_date[domain]}")
+pdf.multi_cell(0, 10, f"Project: {project_name}
+Objectives: {project_objectives}
+Date: {date.today()}
+")
+
+# Radar Chart at Start
 tmp_img = "radar_chart.png"
 with open(tmp_img, "wb") as f:
     f.write(img_buffer.getvalue())
 pdf.image(tmp_img, x=40, w=130)
+pdf.ln(85)
+
+# Summary Section
+pdf.set_font("Arial", 'B', 12)
+pdf.cell(0, 10, "Summary of Scores by Domain", ln=True)
+pdf.set_font("Arial", '', 11)
+for domain in domain_scores:
+    pdf.multi_cell(0, 8, f"{domain}: {domain_scores[domain]:.1f}/10
+Lowest: {lowest_questions[domain]}
+Improvement Action: {improvement_measures[domain]}
+Responsible: {responsible[domain]} | Review Date: {review_date[domain]}")
+    pdf.ln(3)
+
+# Detailed Questions Section
+pdf.add_page()
+pdf.set_font("Arial", 'B', 12)
+pdf.cell(0, 10, "Detailed Questions and Scores", ln=True)
+pdf.set_font("Arial", '', 10)
+for q in questions_data:
+    pdf.multi_cell(0, 8, f"{q['Question']} - Score: {q['Score']}
+Notes: {q['Notes']}
+")
+    pdf.ln(2)
+
+# Footer
 pdf.set_y(-20)
 pdf.set_font("Arial", 'I', 8)
-pdf.multi_cell(0, 8, "Thank you for using this tool. Suggestions: https://bit.ly/raicesp")
+pdf.multi_cell(0, 8, f"Downloaded on {datetime.now().strftime('%Y-%m-%d %H:%M')}
+Thank you for using this tool. Suggestions: https://bit.ly/raicesp")
+
 pdf_data = pdf.output(dest='S').encode('latin-1')
 st.download_button("📄 Download PDF Report", pdf_data, file_name=f"{date.today()}_{project_name.replace(' ', '_')}_PSPA_Report.pdf", mime="application/pdf")
 
@@ -184,5 +212,9 @@ excel_buffer = io.BytesIO()
 with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
     df_summary.to_excel(writer, index=False, sheet_name='Summary')
     worksheet = writer.sheets['Summary']
+    for idx, col in enumerate(df_summary.columns):
+        col_width = max(df_summary[col].astype(str).map(len).max(), len(col)) + 2
+        worksheet.set_column(idx, idx, col_width)
+
     worksheet.insert_image('H2', 'radar_chart.png', {'image_data': img_buffer})
 st.download_button("📊 Download Excel (.xlsx)", excel_buffer.getvalue(), file_name=f"{date.today()}_{project_name.replace(' ', '_')}_PSPA_Report.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
