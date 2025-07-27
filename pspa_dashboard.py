@@ -76,26 +76,15 @@ def get_ranking(score):
     elif score < 8: return "High"
     else: return "Very High"
 
-def ranking_color(ranking):
-    colors = {
-        "Very Low": "#ffcccc",
-        "Low": "#ffe0b3",
-        "Average": "#ffffcc",
-        "High": "#d6f5d6",
-        "Very High": "#cce6ff"
-    }
-    return colors.get(ranking, "#ffffff")
-
 # === SELF-ASSESSMENT ===
 st.header("Self-Assessment")
 for domain, qs in domains.items():
-    st.markdown(f"<div style='background-color:#f2f2f2; padding:6px; border-radius:6px;'><b>{domain}</b></div>", unsafe_allow_html=True)
+    st.markdown(f"<h4 style='color:#003366;'>{domain}</h4>", unsafe_allow_html=True)
     scores = []
     min_score_local = 10
     for i, q in enumerate(qs, start=1):
         q_num = f"{domain.split('.')[0]}.{i}"
-        color_q = "blue"
-        st.markdown(f"<span style='color:{color_q}; font-weight:bold;'>{q_num}</span> {q}", unsafe_allow_html=True)
+        st.markdown(f"<span style='color:#1a75ff; font-weight:bold;'>{q_num}</span> {q}", unsafe_allow_html=True)
         notes = st.text_area(f"Notes for {q}", key=f"notes-{domain}-{i}")
         score = st.slider("Score (0-10)", 0, 10, 5, key=f"{domain}-{i}")
         scores.append(score)
@@ -103,11 +92,11 @@ for domain, qs in domains.items():
         questions_data.append({"Domain": domain, "Question": f"{q_num} {q}", "Score": score, "Notes": notes})
     avg_score = round(np.mean(scores), 1)
     domain_scores[domain] = avg_score
-    ranking = get_ranking(avg_score)
     min_questions = [f"{domain.split('.')[0]}.{i+1} {qs[i]}" for i, s in enumerate(scores) if s == min_score_local]
     lowest_questions[domain] = ", ".join(min_questions)
-    st.markdown(f"<div style='background-color:{ranking_color(ranking)}; padding:4px; border-radius:4px;'>"
-                f"<b>Domain Score:</b> {avg_score:.1f}/10 - {ranking}</div>", unsafe_allow_html=True)
+    ranking = get_ranking(avg_score)
+    st.markdown(f"<p><b>Domain Score:</b> {avg_score:.1f}/10 - {ranking}</p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color:#0059b3;'><b>Lowest Question(s):</b> {lowest_questions[domain]}</p>", unsafe_allow_html=True)
     improvements[domain] = st.text_area(f"Improvement Action for {domain}", key=f"improve-{domain}")
     responsible[domain] = st.text_input(f"Responsible for {domain}", key=f"resp-{domain}")
     review_date[domain] = st.date_input(f"Review Date", value=date.today() + timedelta(days=90), key=f"date-{domain}")
@@ -125,10 +114,11 @@ df_summary = pd.DataFrame({
 
 def color_code(value):
     ranking = get_ranking(value)
-    return f"background-color:{ranking_color(ranking)}; color:black"
+    colors = {"Very Low": "#ff9999", "Low": "#ffd699", "Average": "#ffff99", "High": "#ccffcc", "Very High": "#cce0ff"}
+    return f"background-color:{colors[ranking]}; color:black"
 
 def highlight_low_questions(val):
-    return "color: red; font-weight: bold" if val and isinstance(val, str) else ""
+    return "color: #004080; font-weight: bold" if val and isinstance(val, str) else ""
 
 styled_summary = df_summary.style.applymap(color_code, subset=["Score"]).applymap(highlight_low_questions, subset=["Lowest Questions"])
 st.dataframe(styled_summary)
@@ -165,7 +155,7 @@ pdf.set_font("Arial", '', 11)
 for domain in domain_scores:
     pdf.multi_cell(0, 8,
         f"{domain}: {domain_scores[domain]:.1f}/10 - {get_ranking(domain_scores[domain])}\n"
-        f"Lowest: {lowest_questions[domain]}\n"
+        f"Lowest Question(s): {lowest_questions[domain]}\n"
         f"Improvement Action: {improvements[domain]}\n"
         f"Responsible: {responsible[domain]} | Review Date: {review_date[domain]}\n"
     )
