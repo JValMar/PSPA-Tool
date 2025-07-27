@@ -7,17 +7,14 @@ from fpdf import FPDF
 import matplotlib.pyplot as plt
 import numpy as np
 
-# === HEADER ===
 st.image("https://raw.githubusercontent.com/JValMar/PSPA-Tool/main/RAICESP_eng_imresizer.jpg", width=150)
 st.title("📊 PATIENT SAFETY PROJECT ADEQUACY DASHBOARD")
-st.markdown("**Version: 22/07/2025**")
-st.markdown("Welcome to the **PSPA Tool**, designed to evaluate patient safety projects and generate PDF/Excel reports.")
+st.markdown("**Version: 27/07/2025**")
+st.markdown("Welcome to the **PSPA Tool**. This tool helps you systematically evaluate patient safety projects, identify improvement areas, and generate professional PDF and Excel reports with visual analytics.")
 
-# === PROJECT INFO ===
 project_name = st.text_input("Project Name")
 project_objectives = st.text_area("🎯 Project Objectives")
 
-# === QUESTIONS & DOMAINS ===
 domains = {
     "1. LEADERSHIP & GOVERNANCE": [
         "Are PS responsibilities clearly assigned?",
@@ -87,8 +84,14 @@ for domain, qs in domains.items():
     responsible[domain] = st.text_input(f"Responsible for {domain}", key=f"resp-{domain}")
     review_date[domain] = st.date_input(f"Review Date", value=date.today() + timedelta(days=90), key=f"date-{domain}")
 
-# === SUMMARY ===
 st.subheader("Summary")
+def color_code(value):
+    if value < 2: return "background-color: #ff4d4d"
+    elif value < 4: return "background-color: #ffa64d"
+    elif value < 6: return "background-color: #ffff66"
+    elif value < 8: return "background-color: #b3ff66"
+    else: return "background-color: #66ff66"
+
 df_summary = pd.DataFrame({
     "Domain": list(domain_scores.keys()),
     "Score": [round(s, 1) for s in domain_scores.values()],
@@ -97,9 +100,8 @@ df_summary = pd.DataFrame({
     "Responsible": [responsible[d] for d in domain_scores],
     "Review Date": [review_date[d] for d in domain_scores]
 })
-st.dataframe(df_summary)
+st.dataframe(df_summary.style.applymap(color_code, subset=["Score"]))
 
-# === RADAR CHART ===
 labels = list(domain_scores.keys())
 scores_list = list(domain_scores.values()) + [list(domain_scores.values())[0]]
 angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False).tolist() + [0]
@@ -115,7 +117,6 @@ plt.savefig(img_buffer, format='png')
 img_buffer.seek(0)
 st.pyplot(fig)
 
-# === PDF EXPORT ===
 pdf = FPDF()
 pdf.add_page()
 pdf.set_font("Arial", 'B', 14)
@@ -129,14 +130,20 @@ pdf.set_font("Arial", 'B', 12)
 pdf.cell(0, 10, "Summary of Domains", ln=True)
 pdf.set_font("Arial", '', 11)
 for domain in domain_scores:
-    pdf.multi_cell(0, 8, f"{domain}: {domain_scores[domain]:.1f}/10\nLowest: {lowest_questions[domain]}\nImprovement: {improvements[domain]}\nResponsible: {responsible[domain]} | Review Date: {review_date[domain]}\n")
+    pdf.multi_cell(0, 8, f"{domain}: {domain_scores[domain]:.1f}/10\nLowest: {lowest_questions[domain]}\nImprovement Action: {improvements[domain]}\nResponsible: {responsible[domain]} | Review Date: {review_date[domain]}\n")
+
+pdf.add_page()
+pdf.set_font("Arial", 'B', 12)
+pdf.cell(0, 10, "Detailed Questions and Notes", ln=True)
+pdf.set_font("Arial", '', 10)
+for row in questions_data:
+    pdf.multi_cell(0, 6, f"{row['Question']} | Score: {row['Score']}\nNotes: {row['Notes']}\n")
 pdf.set_y(-20)
 pdf.set_font("Arial", 'I', 8)
 pdf.multi_cell(0, 8, f"Downloaded on {datetime.now().strftime('%Y-%m-%d %H:%M')}\nSuggestions: https://bit.ly/raicesp")
 pdf_data = pdf.output(dest='S').encode('latin-1')
 st.download_button("📄 Download PDF", pdf_data, file_name=f"{date.today()}_{project_name}_PSPA.pdf", mime="application/pdf")
 
-# === EXCEL EXPORT ===
 excel_buffer = io.BytesIO()
 df_questions = pd.DataFrame(questions_data)
 with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
@@ -149,6 +156,5 @@ with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
     ws.insert_image('H2', 'radar_chart.png', {'image_data': img_buffer})
 st.download_button("📊 Download Excel", excel_buffer.getvalue(), file_name=f"{date.today()}_{project_name}_PSPA.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-# === FOOTER ===
 st.markdown("---")
 st.info("💬 **Thank you for using PSPA Tool. Share suggestions at [https://bit.ly/raicesp](https://bit.ly/raicesp)**")
