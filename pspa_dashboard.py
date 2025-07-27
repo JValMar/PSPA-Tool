@@ -65,7 +65,7 @@ questions_data = []
 
 st.header("Self-Assessment")
 for domain, qs in domains.items():
-    st.subheader(domain)
+    st.markdown(f"<div style='background-color:#e6f0ff; padding:6px; border-radius:6px;'><b>{domain}</b></div>", unsafe_allow_html=True)
     scores = []
     for i, q in enumerate(qs, start=1):
         q_num = f"{domain.split('.')[0]}.{i}"
@@ -86,11 +86,11 @@ for domain, qs in domains.items():
 
 st.subheader("Summary")
 def color_code(value):
-    if value < 2: return "background-color: #ff4d4d"
-    elif value < 4: return "background-color: #ffa64d"
-    elif value < 6: return "background-color: #ffff66"
-    elif value < 8: return "background-color: #b3ff66"
-    else: return "background-color: #66ff66"
+    if value < 2: return "background-color: #ffcccc; color: black"  # Very Low
+    elif value < 4: return "background-color: #ffe0b3; color: black" # Low
+    elif value < 6: return "background-color: #ffffcc; color: black" # Average
+    elif value < 8: return "background-color: #d6f5d6; color: black" # High
+    else: return "background-color: #cce6ff; color: black"            # Excellent
 
 df_summary = pd.DataFrame({
     "Domain": list(domain_scores.keys()),
@@ -100,7 +100,12 @@ df_summary = pd.DataFrame({
     "Responsible": [responsible[d] for d in domain_scores],
     "Review Date": [review_date[d] for d in domain_scores]
 })
-st.dataframe(df_summary.style.applymap(color_code, subset=["Score"]))
+
+def highlight_low_questions(val):
+    return "color: red; font-weight: bold" if isinstance(val, str) and any(x in val for x in [str(i) for i in range(1, 5)]) else ""
+
+styled_summary = df_summary.style.applymap(color_code, subset=["Score"]).applymap(highlight_low_questions, subset=["Lowest Questions"])
+st.dataframe(styled_summary)
 
 labels = list(domain_scores.keys())
 scores_list = list(domain_scores.values()) + [list(domain_scores.values())[0]]
@@ -137,9 +142,15 @@ pdf.set_font("Arial", 'B', 12)
 pdf.cell(0, 10, "Detailed Questions and Notes", ln=True)
 pdf.set_font("Arial", '', 10)
 for row in questions_data:
-    pdf.multi_cell(0, 6, f"{row['Question']} | Score: {row['Score']}\nNotes: {row['Notes']}\n")
+    q_label = f"{row['Question']} | Score: {row['Score']:.1f}"
+    if row['Score'] == min([q['Score'] for q in questions_data if q['Domain'] == row['Domain']]):
+        pdf.set_text_color(255, 0, 0)  # red
+    else:
+        pdf.set_text_color(0, 0, 0)
+    pdf.multi_cell(0, 6, f"{q_label}\nNotes: {row['Notes']}\n")
 pdf.set_y(-20)
 pdf.set_font("Arial", 'I', 8)
+pdf.set_text_color(0, 0, 0)
 pdf.multi_cell(0, 8, f"Downloaded on {datetime.now().strftime('%Y-%m-%d %H:%M')}\nSuggestions: https://bit.ly/raicesp")
 pdf_data = pdf.output(dest='S').encode('latin-1')
 st.download_button("📄 Download PDF", pdf_data, file_name=f"{date.today()}_{project_name}_PSPA.pdf", mime="application/pdf")
