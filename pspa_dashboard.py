@@ -91,11 +91,12 @@ for domain, qs in domains.items():
     scores = []
     min_score_local = 10
     st.markdown("---", unsafe_allow_html=True)
-    st.markdown(f"<div style='background-color:#003366; color:white; padding:6px; border-radius:6px;'><b>{domain}</b></div>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='background-color:#003366; color:white; padding:8px; border-radius:6px; margin-top:12px;'>{domain}</h3>", unsafe_allow_html=True)
     for i, q in enumerate(qs, start=1):
         q_num = f"{domain.split('.')[0]}.{i}"
+        st.markdown(f"<p><span style='color:{color_q_num}; font-weight:bold;'>{q_num}</span> {q}</p>", unsafe_allow_html=True)
         notes = st.text_area(f"Notes for {q}", key=f"notes-{domain}-{i}")
-        score = st.slider(f"Score (0-10) for {q_num}", 0, 10, 5, key=f"{domain}-{i}")
+        score = st.slider(f"Score (0-10)", 0, 10, 5, key=f"{domain}-{i}")
         # Color numeración y texto si es la más baja
         color_q_num = "#1a75ff"
         color_q_text = "black"
