@@ -79,7 +79,7 @@ def get_ranking(score):
 # === SELF-ASSESSMENT ===
 st.header("Self-Assessment")
 for domain, qs in domains.items():
-    st.markdown(f"<h4 style='color:#003366;'>{domain}</h4>", unsafe_allow_html=True)
+    st.markdown(f"<div style='background-color:#003366; color:white; padding:6px; border-radius:6px;'><b>{domain}</b></div>", unsafe_allow_html=True)
     scores = []
     min_score_local = 10
     for i, q in enumerate(qs, start=1):
@@ -96,7 +96,8 @@ for domain, qs in domains.items():
     lowest_questions[domain] = ", ".join(min_questions)
     ranking = get_ranking(avg_score)
     st.markdown(f"<p><b>Domain Score:</b> {avg_score:.1f}/10 - {ranking}</p>", unsafe_allow_html=True)
-    st.markdown(f"<p style='color:#0059b3;'><b>Lowest Question(s):</b> {lowest_questions[domain]}</p>", unsafe_allow_html=True)
+    st.markdown(f"<p><span style='color:#1a75ff; font-weight:bold;'>Lowest Question(s):</span> "
+                f"<span style='color:#800000;'>{lowest_questions[domain]}</span></p>", unsafe_allow_html=True)
     improvements[domain] = st.text_area(f"Improvement Action for {domain}", key=f"improve-{domain}")
     responsible[domain] = st.text_input(f"Responsible for {domain}", key=f"resp-{domain}")
     review_date[domain] = st.date_input(f"Review Date", value=date.today() + timedelta(days=90), key=f"date-{domain}")
@@ -118,7 +119,7 @@ def color_code(value):
     return f"background-color:{colors[ranking]}; color:black"
 
 def highlight_low_questions(val):
-    return "color: #004080; font-weight: bold" if val and isinstance(val, str) else ""
+    return "color: #1a75ff; font-weight:bold;" if val and isinstance(val, str) else ""
 
 styled_summary = df_summary.style.applymap(color_code, subset=["Score"]).applymap(highlight_low_questions, subset=["Lowest Questions"])
 st.dataframe(styled_summary)
