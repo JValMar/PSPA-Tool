@@ -18,13 +18,15 @@ def get_ranking(score):
     else:
         return "Very High"
 
+
 ranking_colors = {
-    "Very Low": "#ff4d4d",  # rojo intenso
-    "Low": "#ff944d",       # naranja
-    "Average": "#ffff66",   # amarillo
-    "High": "#99e699",      # verde
-    "Very High": "#66b3ff"  # azul claro
+    "Very Low": "#ff4d4d",   # rojo intenso
+    "Low": "#ff944d",        # naranja
+    "Average": "#ffeb3b",    # amarillo brillante
+    "High": "#81c784",       # verde medio
+    "Very High": "#42a5f5"   # azul medio
 }
+
 
 # === HEADER ===
 st.image("https://raw.githubusercontent.com/JValMar/PSPA-Tool/main/RAICESP_eng_imresizer.jpg", width=150)
@@ -113,8 +115,8 @@ for domain, qs in domains.items():
     lowest_questions[domain] = ", ".join(min_questions)
     st.markdown(f"<div style='background-color:{ranking_colors[ranking]}; padding:4px; border-radius:4px;'>"
                 f"<span style='color:#000033;'><b>Domain Score:</b> {avg_score:.1f}/10 - {ranking.upper()}</span><br>"
-                f"<span style='color:#1a75ff; font-weight:bold;'>Lowest Question(s):</span> "
-                f"<span style='color:#800000;'>{lowest_questions[domain]}</span></div>", unsafe_allow_html=True)
+                f"<span style='color:#0040ff; font-weight:bold;'>Lowest Question(s):</span> "
+                f"<span style='color:#cc0000;'>{lowest_questions[domain]}</span></div>", unsafe_allow_html=True)
     improvements[domain] = st.text_area(f"Improvement Action for {domain}", key=f"improve-{domain}")
     responsible[domain] = st.text_input(f"Responsible for {domain}", key=f"resp-{domain}")
     review_date[domain] = st.date_input(f"Review Date", value=date.today() + timedelta(days=90), key=f"date-{domain}")
@@ -135,7 +137,7 @@ def color_code(value):
 
 def highlight_low_questions(val):
     if val and isinstance(val, str):
-        return "color:#800000; font-weight:bold;"
+        return "color:#cc0000; font-weight:bold;"
     return ""
 
 styled_summary = df_summary.style.applymap(color_code, subset=["Score"]).applymap(highlight_low_questions, subset=["Lowest Questions"])
@@ -192,7 +194,13 @@ pdf.set_y(-20)
 pdf.set_font("Arial", 'I', 8)
 pdf.set_text_color(0, 0, 0)
 pdf.multi_cell(0, 8, f"Downloaded on {datetime.now().strftime('%Y-%m-%d %H:%M')}\nSuggestions: https://bit.ly/raicesp")
-pdf_data = pdf.output(dest='S').encode('latin-1')
+import tempfile
+
+with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
+    pdf.output(tmp_pdf.name)
+    tmp_pdf.seek(0)
+    pdf_data = tmp_pdf.read()
+
 st.download_button("📄 Download PDF", pdf_data, file_name=f"{date.today()}_{project_name}_PSPA.pdf", mime="application/pdf")
 
 # === EXCEL EXPORT ===
@@ -203,8 +211,11 @@ with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
     df_questions.to_excel(writer, index=False, sheet_name='Questions')
     ws = writer.sheets['Summary']
     for i, col in enumerate(df_summary.columns):
-        col_width = max(df_summary[col].astype(str).map(len).max(), len(col)) + 2
-        ws.set_column(i, i, col_width)
+        max_len = max(
+            df_summary[col].astype(str).map(len).max(),
+            len(col)
+        ) + 2
+        ws.set_column(i, i, max_len)
     ws.insert_image('H2', 'radar_chart.png', {'image_data': img_buffer})
 st.download_button("📊 Download Excel", excel_buffer.getvalue(), file_name=f"{date.today()}_{project_name}_PSPA.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
