@@ -77,7 +77,11 @@ def get_ranking(score):
     elif score < 8: return "High"
     else: return "Very High"
 
-ranking_colors = {
+from pspa_utils import get_ranking, ranking_colors
+
+# Eliminamos duplicado de definición de ranking_colors (importado)
+
+#ranking_colors = {
     "Very Low": "#ff9999",
     "Low": "#ffd699",
     "Average": "#ffff99",
