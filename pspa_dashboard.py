@@ -10,10 +10,11 @@ import numpy as np
 # === HEADER ===
 st.image("https://raw.githubusercontent.com/JValMar/PSPA-Tool/main/RAICESP_eng_imresizer.jpg", width=150)
 st.title("📊 PATIENT SAFETY PROJECT ADEQUACY DASHBOARD")
-st.markdown("**Version: 27/07/2025**")
+st.markdown("**Version 1.1 - 27/07/2025**")
 st.markdown(
-    "Welcome to the **PSPA Tool**. Evaluate patient safety projects, identify improvement areas, "
-    "and generate professional PDF and Excel reports with visual analytics."
+    "Welcome to the **PSPA Tool**. This tool helps you evaluate patient safety projects, "
+    "identify areas of improvement, and plan and track improvement actions with subsequent project reviews. "
+    "You can generate professional PDF and Excel reports with visual analytics."
 )
 
 # === PROJECT INFO ===
@@ -76,26 +77,39 @@ def get_ranking(score):
     elif score < 8: return "High"
     else: return "Very High"
 
+ranking_colors = {
+    "Very Low": "#ff9999",
+    "Low": "#ffd699",
+    "Average": "#ffff99",
+    "High": "#ccffcc",
+    "Very High": "#cce0ff"
+}
+
 # === SELF-ASSESSMENT ===
 st.header("Self-Assessment")
 for domain, qs in domains.items():
-    st.markdown(f"<div style='background-color:#003366; color:white; padding:6px; border-radius:6px;'><b>{domain}</b></div>", unsafe_allow_html=True)
     scores = []
     min_score_local = 10
+    st.markdown("---", unsafe_allow_html=True)
+    st.markdown(f"<div style='background-color:#003366; color:white; padding:6px; border-radius:6px;'><b>{domain}</b></div>", unsafe_allow_html=True)
     for i, q in enumerate(qs, start=1):
         q_num = f"{domain.split('.')[0]}.{i}"
-        st.markdown(f"<span style='color:#1a75ff; font-weight:bold;'>{q_num}</span> {q}", unsafe_allow_html=True)
         notes = st.text_area(f"Notes for {q}", key=f"notes-{domain}-{i}")
-        score = st.slider("Score (0-10)", 0, 10, 5, key=f"{domain}-{i}")
+        score = st.slider(f"Score (0-10) for {q_num}", 0, 10, 5, key=f"{domain}-{i}")
+        # Color numeración y texto si es la más baja
+        color_q_num = "#1a75ff"
+        color_q_text = "black"
         scores.append(score)
         min_score_local = min(min_score_local, score)
         questions_data.append({"Domain": domain, "Question": f"{q_num} {q}", "Score": score, "Notes": notes})
+        st.markdown(f"<p><span style='color:{color_q_num}; font-weight:bold;'>{q_num}</span> {q}</p>", unsafe_allow_html=True)
     avg_score = round(np.mean(scores), 1)
     domain_scores[domain] = avg_score
+    ranking = get_ranking(avg_score)
     min_questions = [f"{domain.split('.')[0]}.{i+1} {qs[i]}" for i, s in enumerate(scores) if s == min_score_local]
     lowest_questions[domain] = ", ".join(min_questions)
-    ranking = get_ranking(avg_score)
-    st.markdown(f"<p><b>Domain Score:</b> {avg_score:.1f}/10 - {ranking}</p>", unsafe_allow_html=True)
+    st.markdown(f"<div style='background-color:{ranking_colors[ranking]}; padding:4px; border-radius:4px;'>"
+                f"<b>Domain Score:</b> {avg_score:.1f}/10 - {ranking}</div>", unsafe_allow_html=True)
     st.markdown(f"<p><span style='color:#1a75ff; font-weight:bold;'>Lowest Question(s):</span> "
                 f"<span style='color:#800000;'>{lowest_questions[domain]}</span></p>", unsafe_allow_html=True)
     improvements[domain] = st.text_area(f"Improvement Action for {domain}", key=f"improve-{domain}")
@@ -114,12 +128,16 @@ df_summary = pd.DataFrame({
 })
 
 def color_code(value):
-    ranking = get_ranking(value)
-    colors = {"Very Low": "#ff9999", "Low": "#ffd699", "Average": "#ffff99", "High": "#ccffcc", "Very High": "#cce0ff"}
-    return f"background-color:{colors[ranking]}; color:black"
+    return f"background-color:{ranking_colors[get_ranking(value)]}; color:black"
 
 def highlight_low_questions(val):
-    return "color: #1a75ff; font-weight:bold;" if val and isinstance(val, str) else ""
+    # Color azul para número, rojo oscuro para texto
+    if val and isinstance(val, str):
+        parts = val.split(" ", 1)
+        if len(parts) > 1:
+            return "font-weight:bold; color:#800000"
+        return "color:#1a75ff; font-weight:bold"
+    return ""
 
 styled_summary = df_summary.style.applymap(color_code, subset=["Score"]).applymap(highlight_low_questions, subset=["Lowest Questions"])
 st.dataframe(styled_summary)
