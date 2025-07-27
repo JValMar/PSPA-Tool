@@ -11,12 +11,13 @@ import numpy as np
 st.image("https://raw.githubusercontent.com/JValMar/PSPA-Tool/main/RAICESP_eng_imresizer.jpg", width=150)
 st.title("📊 PATIENT SAFETY PROJECT ADEQUACY DASHBOARD")
 st.markdown("**Version: 22/07/2025**")
+
 st.markdown(
     """
     Welcome to the **Patient Safety Project Adequacy (PSPA) Dashboard**.
 
     This tool helps healthcare teams evaluate patient safety projects, 
-    identify areas for improvement, and generate reports (PDF and Excel).
+    identify improvement areas, and generate detailed PDF and Excel reports.
     """
 )
 
@@ -85,7 +86,7 @@ for domain, questions in base_domain_questions.items():
         st.text_area(f"Notes for {q}", key=f"notes-{domain}-{i}")
         score = st.slider(f"Score this question (0-10)", 0, 10, 5, key=f"{domain}-{i}")
         scores.append(score)
-    avg_score = round(np.mean(scores), 2)
+    avg_score = round(np.mean(scores), 1)
     domain_scores[domain] = avg_score
     lowest_questions[domain] = questions[np.argmin(scores)]
     st.markdown(f"**Domain Score:** {avg_score}/10")
@@ -125,6 +126,10 @@ ax.set_yticks(range(0, 11, 2))
 ax.set_xticks(angles[:-1])
 ax.set_xticklabels(labels, size=8)
 ax.set_title("Patient Safety Project Radar", va='bottom')
+
+img_buffer = io.BytesIO()
+plt.savefig(img_buffer, format='png')
+img_buffer.seek(0)
 st.pyplot(fig)
 
 # --- PDF Export ---
@@ -138,7 +143,15 @@ pdf.set_font("Arial", 'B', 12)
 pdf.cell(0, 10, "Summary of Scores by Domain:", ln=True)
 for domain in domain_scores:
     pdf.set_font("Arial", '', 11)
-    pdf.multi_cell(0, 8, f"{domain}: {domain_scores[domain]}/10 | Lowest: {lowest_questions[domain]}\nResponsible: {responsible[domain]} | Review Date: {review_date[domain]}")
+    pdf.multi_cell(0, 8, f"{domain}: {domain_scores[domain]}/10\nLowest: {lowest_questions[domain]}\nResponsible: {responsible[domain]} | Review Date: {review_date[domain]}\nImprovement Measures: {improvement_measures[domain]}")
+tmp_img = "radar_chart.png"
+with open(tmp_img, "wb") as f:
+    f.write(img_buffer.getvalue())
+pdf.image(tmp_img, x=40, w=130)
+pdf.set_y(-20)
+pdf.set_font("Arial", 'I', 8)
+pdf.multi_cell(0, 8, "Thank you for using this tool. Please send suggestions: https://bit.ly/raicesp")
+
 pdf_data = pdf.output(dest='S').encode('latin-1')
 st.download_button("📄 Download PDF Report", pdf_data, file_name=f"{date.today()}_{project_name.replace(' ', '_')}_PSPA_Report.pdf", mime="application/pdf")
 
@@ -146,6 +159,9 @@ st.download_button("📄 Download PDF Report", pdf_data, file_name=f"{date.today
 excel_buffer = io.BytesIO()
 with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
     df_summary.to_excel(writer, index=False, sheet_name='Summary')
+    worksheet = writer.sheets['Summary']
+    worksheet.insert_image('H2', 'radar_chart.png', {'image_data': img_buffer})
+
 st.download_button("📊 Download Excel (.xlsx)", excel_buffer.getvalue(), file_name=f"{date.today()}_{project_name.replace(' ', '_')}_PSPA_Report.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # --- Feedback ---
