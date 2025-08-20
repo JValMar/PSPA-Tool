@@ -7,6 +7,7 @@ from fpdf import FPDF
 import matplotlib.pyplot as plt
 from datetime import date, datetime, timedelta
 import json
+import re
 
 # ================== UTILS ==================
 def get_ranking(score):
@@ -409,9 +410,12 @@ def color_code(value):
 def highlight_low_questions(val):
     return "color:#cc0000; font-weight:bold;" if isinstance(val, str) and val else ""
 
-df_summary_view = df_summary.drop(columns=["Domain", "IAP Review Date"], errors="ignore")
-styled_summary = df_summary_view.style.applymap(color_code, subset=["Score"]).format({"Score": "{:.1f}"})
-st.dataframe(styled_summary, use_container_width=True)
+df_summary_view = df_summary.drop(columns=['IAP Review Date'], errors='ignore')
+# Reorder columns for readability
+cols = [c for c in ['Domain','Score','Improvement Action Plan','IAP Responsible'] if c in df_summary_view.columns]
+df_summary_view = df_summary_view[cols]
+styled_summary = df_summary_view.style.applymap(color_code, subset=['Score']).format({'Score': '{:.1f}'})
+st.dataframe(styled_summary, use_container_width=True, hide_index=True)
 
 # ================== RADAR (WEB) ==================
 labels = list(domain_scores.keys())
@@ -500,8 +504,11 @@ with st.expander("📥 Import or Export Evaluation"):
 
 
 # ================== PDF EXPORT ==================
-st.download_button("⬇️ Download PDF", _build_pdf_report(project_name, domain_scores, lowest_questions, questions_data),
-                 file_name=f"{date.today()}_{project_name}_PSPA.pdf", mime="application/pdf")
+from datetime import datetime as _dt
+_ts = _dt.now().strftime('%Y%m%d_%H%M')
+_slug = re.sub(r'[^A-Za-z0-9-]+','-', (project_name or 'Project')).strip('-')[:40] or 'Project'
+st.download_button('⬇️ Download PDF', _build_pdf_report(project_name, domain_scores, lowest_questions, questions_data),
+                 file_name=f'{_ts}_{_slug}_PSPA.pdf', mime='application/pdf')
 
 # ================== EXCEL EXPORT ==================
 
@@ -511,4 +518,7 @@ excel_bytes = _build_excel_report(
     project_name or "Project",
     date.today().isoformat()
 )
-st.download_button("📊 Download Excel", excel_bytes, file_name=f"{date.today()}_{project_name}_PSPA.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+from datetime import datetime as _dt
+_ts = _dt.now().strftime('%Y%m%d_%H%M')
+_slug = re.sub(r'[^A-Za-z0-9-]+','-', (project_name or 'Project')).strip('-')[:40] or 'Project'
+st.download_button('📊 Download Excel', excel_bytes, file_name=f'{_ts}_{_slug}_PSPA.xlsx', mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
