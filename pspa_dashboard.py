@@ -85,7 +85,7 @@ def _build_excel_report(df_summary, df_questions, project_name, eval_date_str):
             chart.set_y_axis({"min": 0, "max": 10, "major_unit": 2})
 
             ws.insert_chart(r1 + 5, 0, chart)
-            ws.write(r1 + 21, 0, "RAICESP - PSPA Tool version 1.2")
+            ws.write(r1 + 35, 0, "RAICESP - PSPA Tool version 1.2")
         else:
             warn_fmt = workbook.add_format({"italic": True, "font_color": "#7f7f7f"})
             ws.write(start_row, 0, "No valid 'Domain'/'Score' data for radar chart.", warn_fmt)
@@ -120,11 +120,21 @@ def _build_excel_report(df_summary, df_questions, project_name, eval_date_str):
 
 # PDF helper (FPDF) con header/footer
 class PSPAPDF(FPDF):
-    def __init__(self, project_name):
+    def __init__(self, project_name, logo_path=None):
         super().__init__()
         self.project_name = project_name
+        self.logo_path = logo_path
 
     def header(self):
+        # Optional logo on the right
+        if getattr(self, "logo_path", None):
+            try:
+                self.image(self.logo_path, x=self.w - 40, y=8, w=28)
+            except Exception:
+                pass
+        self.set_font("Arial", "B", 11)
+        self.set_text_color(0)
+        self.cell(0, 8, _latin1("PATIENT SAFETY PROJECT ADEQUACY DASHBOARD"), ln=True, align="L")
         self.set_font("Arial", "", 9)
         self.set_text_color(80)
         self.cell(0, 8, _latin1(f"Project: {self.project_name}"), ln=True, align="L")
@@ -142,6 +152,18 @@ def _latin1(s: str) -> str:
         return (s or "").encode('latin-1', 'replace').decode('latin-1')
     except Exception:
         return str(s)
+
+
+def _pdf_ensure_space(pdf, needed_h=30):
+    # If not enough vertical space, start a new page before printing the block
+    remaining = pdf.h - pdf.b_margin - pdf.get_y()
+    if remaining < needed_h:
+        pdf.add_page()
+
+def _estimate_block_height(q_count):
+    # approx: domain title (8) + each question line (6) + notes line (6) + small gaps
+    return 10 + q_count * 14 + 6
+
 
 def pdf_add_safe_multicell(pdf, text, w=0, h=6, txt_color=(0,0,0), italic=False):
     pdf.set_text_color(*txt_color)
@@ -165,9 +187,213 @@ project_name = st.text_input("Project Name", key="project_name")
 project_objectives = st.text_area("🎯 Project Objectives", key="project_objectives")
 
 
+# ================== BRANDING (optional logo for PDF) ==================
+with st.expander("🎨 Branding (optional)"):
+    logo_file = st.file_uploader("Upload logo (PNG/JPG) to include in PDF header", type=["png","jpg","jpeg"], key="logo_upload")
+    if logo_file is not None:
+        st.session_state["logo_bytes"] = logo_file.read()
+        st.success("Logo stored for PDF header.")
+    elif "logo_bytes" in st.session_state:
+        st.info("A logo is already loaded and will be used in PDF header.")
+
+
+
+
+# ================== DOMAINS/QUESTIONS ==================
+domains = {
+    "1. LEADERSHIP & GOVERNANCE": [
+        "Are PS responsibilities clearly assigned?",
+        "Is there a PS committee or team that meets regularly?",
+        "Are there PS indicators being tracked?",
+        "Is PS integrated into strategic planning?"
+    ],
+    "2. STAFFING, SKILLS & SAFETY CULTURE": [
+        "Is there a shortage of critical staff?",
+        "Do staff feel safe to report incidents?",
+        "Are regular trainings on PS and IPC conducted?",
+        "Do staff feel supported to raise concerns?"
+    ],
+    "3. BASELINE ASSESSMENT": [
+        "Has a PS situation analysis been done?",
+        "Have PS risks or gaps been identified and prioritized?",
+        "Are baseline indicators available?",
+        "Were patients or community consulted?"
+    ],
+    "4. INTERVENTION DESIGN": [
+        "Were actions chosen based on evidence or data?",
+        "Are responsibilities and timelines defined?",
+        "Are patients or staff involved in designing improvements?",
+        "Is it clear what change is expected and how to measure it?"
+    ],
+    "5. CHANGE MANAGEMENT & IMPLEMENTATION": [
+        "Is there a team leading the changes?",
+        "Are changes being piloted or tested before full rollout?",
+        "Are there regular meetings to review progress?",
+        "Is coaching or support provided to staff?"
+    ],
+    "6. MONITORING & MEASUREMENT": [
+        "Are indicators or data collected regularly?",
+        "Are data used to inform decisions or actions?",
+        "Are feedback loops established with frontline staff?",
+        "Is there disaggregated data for equity (e.g. gender)?"
+    ],
+    "7. SUSTAINABILITY & PARTNERSHIPS": [
+        "Are changes being integrated into routines or policies?",
+        "Is there external support (e.g. MoH, NGOs)?",
+        "Is there capacity-building for sustainability?",
+        "Are partnerships formalized or evaluated?"
+    ]
+}
+
+st.header("Self-Assessment")
+questions_data = []
+domain_scores = {}
+lowest_questions = {}
+
+for domain, qs in domains.items():
+    st.markdown("---")
+    st.markdown(f"<h3 style='background-color:#003366; color:white; padding:8px; border-radius:6px;'>{domain}</h3>", unsafe_allow_html=True)
+    scores = []
+    min_score_local = 10
+    for i, q in enumerate(qs, start=1):
+        q_num = f"{domain.split('.')[0]}.{i}"
+        st.markdown(f"<p><span style='color:#1a75ff; font-weight:bold;'>{q_num}</span> {q}</p>", unsafe_allow_html=True)
+        note_key = f"note_{q_num}"
+        score_key = f"slider_{q_num}"
+        note_val = st.session_state.get(note_key, "")
+        score_val = st.session_state.get(score_key, 5)
+        notes = st.text_area("Notes", value=note_val, key=note_key)
+        score = st.slider("Score (0-10)", 0, 10, value=score_val, key=score_key)
+        scores.append(score)
+        if score < min_score_local:
+            min_score_local = score
+        questions_data.append({"Domain": domain, "Question": f"{q_num} {q}", "Score": score, "Notes": notes})
+    avg_score = round(float(np.mean(scores)), 1) if len(scores) else 0.0
+    domain_scores[domain] = avg_score
+    min_questions = [f"{domain.split('.')[0]}.{i+1} {qs[i]}" for i, s in enumerate(scores) if s == min_score_local]
+    lowest_questions[domain] = ", ".join(min_questions)
+
+    # Per-domain improvement fields
+    st.text_area(f"Improvement Action for {domain}", key=f"improve-{domain}")
+    st.text_input(f"Responsible for {domain}", key=f"resp-{domain}")
+    st.date_input(f"Review Date", value=st.session_state.get(f"date-{domain}", date.today()), key=f"date-{domain}")
+
+# ================== SUMMARY TABLE ==================
+st.subheader("Summary")
+df_summary = pd.DataFrame({
+    "Domain": list(domain_scores.keys()),
+    "Score": [round(s, 1) for s in domain_scores.values()],
+    "Lowest Questions": [lowest_questions[d] for d in domain_scores],
+    "Improvement Action": [st.session_state.get(f"improve-{d}", "") for d in domain_scores],
+    "Responsible": [st.session_state.get(f"resp-{d}", "") for d in domain_scores],
+    "Review Date": [st.session_state.get(f"date-{d}", date.today()) for d in domain_scores]
+})
+
+def color_code(value):
+    return f"background-color:{ranking_colors[get_ranking(value)]}; color:black"
+
+def highlight_low_questions(val):
+    return "color:#cc0000; font-weight:bold;" if isinstance(val, str) and val else ""
+
+styled_summary = df_summary.style.applymap(color_code, subset=["Score"]).applymap(highlight_low_questions, subset=["Lowest Questions"])
+st.dataframe(styled_summary, use_container_width=True)
+
+# ================== RADAR (WEB) ==================
+labels = list(domain_scores.keys())
+if labels:
+    values = list(domain_scores.values())
+    values_c = values + [values[0]]
+    angles = np.linspace(0, 2*np.pi, len(labels), endpoint=False).tolist() + [0]
+    fig, ax = plt.subplots(figsize=(6,6), subplot_kw=dict(polar=True))
+    ax.plot(angles, values_c, linewidth=2, color='#1f4e79')
+    ax.fill(angles, values_c, alpha=0.25, color='#8FAADC')
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(labels, size=8)
+    ax.set_yticks(range(0, 11, 2))
+    ax.set_title("Radar Chart", va='bottom')
+    st.pyplot(fig)
+
+# ================== IMPORT / EXPORT (JSON) ==================
+with st.expander("📥 Import or Export Evaluation"):
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📤 Export Evaluation"):
+            eval_data = {
+                "project_name": st.session_state.get("project_name", ""),
+                "project_objectives": st.session_state.get("project_objectives", ""),
+                "scores": {k: v for k, v in st.session_state.items() if k.startswith("slider_")},
+                "notes":  {k: v for k, v in st.session_state.items() if k.startswith("note_")},
+                "improvements": {d: st.session_state.get(f"improve-{d}", "") for d in domains.keys()},
+                "responsible":  {d: st.session_state.get(f"resp-{d}", "") for d in domains.keys()},
+                "review_date":  {d: str(st.session_state.get(f"date-{d}", date.today())) for d in domains.keys()}
+            }
+            json_data = json.dumps(eval_data, indent=2)
+            st.download_button("Download JSON", json_data, file_name="evaluation_data.json", mime="application/json")
+
+        st.markdown("---")
+        if st.button("🧹 Clear all evaluation"):
+            for k in list(st.session_state.keys()):
+                if k.startswith(("slider_","note_","improve-","resp-","date-")) or k in ("_import_done","_import_digest","project_name","project_objectives"):
+                    del st.session_state[k]
+            st.success("All evaluation fields cleared.")
+            st.rerun()
+
+    with col2:
+        import hashlib
+        uploaded_json = st.file_uploader("Upload previous evaluation (.json)", type="json", key="uploader_json")
+        if uploaded_json is not None:
+            try:
+                content = uploaded_json.read()
+                digest = hashlib.md5(content).hexdigest()
+                if st.session_state.get("_import_digest") != digest and not st.session_state.get("_import_done"):
+                    data = json.loads(content.decode("utf-8"))
+                    # Clear previous state
+                    for k in list(st.session_state.keys()):
+                        if k.startswith(("slider_","note_","improve-","resp-","date-")) or k in ("project_name","project_objectives"):
+                            del st.session_state[k]
+                    # Load project fields
+                    st.session_state["project_name"] = data.get("project_name","")
+                    st.session_state["project_objectives"] = data.get("project_objectives","")
+                    # Load scores and notes
+                    for k, v in data.get("scores", {}).items():
+                        try:
+                            st.session_state[k] = int(v)
+                        except Exception:
+                            try:
+                                st.session_state[k] = float(v)
+                            except Exception:
+                                st.session_state[k] = v
+                    for k, v in data.get("notes", {}).items():
+                        st.session_state[k] = v
+                    # Load per-domain fields
+                    for d, v in data.get("improvements", {}).items():
+                        st.session_state[f"improve-{d}"] = v
+                    for d, v in data.get("responsible", {}).items():
+                        st.session_state[f"resp-{d}"] = v
+                    for d, v in data.get("review_date", {}).items():
+                        try:
+                            st.session_state[f"date-{d}"] = pd.to_datetime(v, errors='coerce').date() if v else date.today()
+                        except Exception:
+                            st.session_state[f"date-{d}"] = date.today()
+                    # Mark as imported and rerun once
+                    st.session_state["_import_digest"] = digest
+                    st.session_state["_import_done"] = True
+                    st.success("Previous evaluation loaded.")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Error loading file: {e}")
+
+
 # ================== PDF EXPORT ==================
 if st.button("📄 Generate PDF"):
-    pdf = PSPAPDF(project_name or "Project")
+    tmp_logo_path = None
+    if st.session_state.get("logo_bytes"):
+        import tempfile
+        _suffix = ".png"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=_suffix) as tlogo:
+            tlogo.write(st.session_state["logo_bytes"])
+            tmp_logo_path = tlogo.name
+    pdf = PSPAPDF(project_name or "Project", logo_path=tmp_logo_path)
     pdf.alias_nb_pages()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
