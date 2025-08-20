@@ -160,6 +160,39 @@ st.pyplot(fig)
 st.markdown("---")
 st.info("💬 **Thank you for using PSPA Tool. Share suggestions at [https://bit.ly/raicesp](https://bit.ly/raicesp)**")
 
+# === IMPORT/EXPORT EVALUATION ===
+import json
+
+with st.expander("📥 Import or Export Evaluation"):
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📤 Export Evaluation"):
+            eval_data = {
+                "scores": {k: v for k, v in st.session_state.items() if k.startswith("slider_")},
+                "notes": {k: v for k, v in st.session_state.items() if k.startswith("note_")},
+                "responsible": responsible,
+                "review_date": {k: str(v) for k, v in review_date.items()},
+                "improvements": improvements
+            }
+            json_data = json.dumps(eval_data, indent=2)
+            st.download_button("Download JSON", json_data, file_name="evaluation_data.json", mime="application/json")
+
+    with col2:
+        uploaded_json = st.file_uploader("Upload previous evaluation (.json)", type="json")
+        if uploaded_json:
+            try:
+                data = json.load(uploaded_json)
+                for k, v in data.get("scores", {}).items():
+                    st.session_state[k] = v
+                for k, v in data.get("notes", {}).items():
+                    st.session_state[k] = v
+                improvements.update(data.get("improvements", {}))
+                responsible.update(data.get("responsible", {}))
+                review_date.update({k: str(v) for k, v in data.get("review_date", {}).items()})
+                st.success("Previous evaluation loaded successfully.")
+            except Exception as e:
+                st.error(f"Error loading file: {e}")
+
 # === PDF EXPORT ===
 pdf = FPDF()
 pdf.add_page()
