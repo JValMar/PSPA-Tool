@@ -225,6 +225,78 @@ def pdf_add_safe_multicell(pdf, text, w=0, h=6, txt_color=(0,0,0), italic=False)
     pdf.set_font("Arial", style, 10 if italic else 11)
     pdf.multi_cell(w, h, _latin1(text))
 
+def _build_pdf_report(project_name, domain_scores, lowest_questions, questions_data):
+    # Build PDF and return bytes
+    pdf = PSPAPDF(project_name or "Project")
+    pdf.alias_nb_pages()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+
+    # Summary
+    pdf.set_font("Arial", "B", 12)
+    pdf.set_text_color(0,0,0)
+    pdf.cell(0, 10, _latin1("Domain Scores"), ln=True)
+    pdf.set_font("Arial", "", 11)
+    for d, s in domain_scores.items():
+        ranking = get_ranking(s)
+        rgb = [int(ranking_colors[ranking].lstrip('#')[i:i+2], 16) for i in (0,2,4)]
+        pdf.set_fill_color(*rgb)
+        pdf.set_text_color(0,0,0)
+        pdf.cell(0, 8, _latin1(f"{d} - {s:.1f}/10 ({ranking.upper()})"), ln=True, fill=True)
+
+    # Lowest questions
+    pdf.ln(4)
+    _pdf_ensure_space(pdf, 24)
+    pdf.set_font("Arial", "B", 12)
+    pdf.set_text_color(0,0,0)
+    pdf.cell(0, 8, _latin1("Lowest Rated Questions"), ln=True)
+    pdf.set_font("Arial", "", 11)
+    for d, q in lowest_questions.items():
+        _pdf_ensure_space(pdf, 12)
+        pdf_add_safe_multicell(pdf, _latin1(f"{d}: {q}"), w=0, h=6, txt_color=(200,0,0), italic=False)
+
+    # Improvement Action Plan (new page)
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 12)
+    pdf.set_text_color(0,0,0)
+    pdf.cell(0, 8, _latin1("Improvement Action Plan"), ln=True)
+
+    for d in domain_scores.keys():
+        pdf.set_font("Arial", "B", 11)
+        pdf.set_text_color(0,0,0)
+        pdf.cell(0, 7, _latin1(d), ln=True)
+        pdf.set_font("Arial", "I", 10)
+        pdf_add_safe_multicell(pdf, _latin1(f"• Action: {st.session_state.get(f'improve-{d}','')}"), txt_color=(0,0,160), italic=True)
+        pdf_add_safe_multicell(pdf, _latin1(f"• Responsible: {st.session_state.get(f'resp-{d}','')}"), txt_color=(0,0,160), italic=True)
+        pdf_add_safe_multicell(pdf, _latin1(f"• Review Date: {st.session_state.get(f'date-{d}', date.today())}"), txt_color=(0,0,160), italic=True)
+        pdf.ln(1)
+
+    # Domain Details (new page)
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 12)
+    pdf.set_text_color(0,0,0)
+    pdf.cell(0, 8, _latin1("Domain Details"), ln=True)
+    for d in domain_scores.keys():
+        q_rows = [r for r in questions_data if r.get("Domain")==d]
+        _pdf_ensure_space(pdf, _estimate_domain_block_height(pdf, q_rows) if ' _estimate_domain_block_height' in globals() else 30)
+        pdf.set_font("Arial", "B", 11)
+        pdf.cell(0, 7, _latin1(d), ln=True)
+        pdf.set_font("Arial", "", 11)
+        for row in q_rows:
+            qtxt = f"- {row.get('Question','')} : {row.get('Score','')}/10"
+            pdf_add_safe_multicell(pdf, _latin1(qtxt), w=0, h=6, txt_color=(0,0,0), italic=False)
+            n = row.get("Notes","")
+            if n:
+                pdf_add_safe_multicell(pdf, _latin1(f"Notes: {n}"), w=0, h=6, txt_color=(0,0,160), italic=True)
+        pdf.ln(1)
+
+    import tempfile
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
+        pdf.output(tmp_pdf.name)
+        tmp_pdf.seek(0)
+        pdf_data = tmp_pdf.read()
+    return pdf_data
+
 # ================== UI HEADER ==================
 st.set_page_config(page_title="PSPA Tool", layout="centered")
 st.image("https://raw.githubusercontent.com/JValMar/PSPA-Tool/main/RAICESP_eng_imresizer.jpg", width=150)
@@ -337,7 +409,8 @@ def color_code(value):
 def highlight_low_questions(val):
     return "color:#cc0000; font-weight:bold;" if isinstance(val, str) and val else ""
 
-styled_summary = df_summary.style.applymap(color_code, subset=["Score"])
+df_summary_view = df_summary.drop(columns=["Domain", "IAP Review Date"], errors="ignore")
+styled_summary = df_summary_view.style.applymap(color_code, subset=["Score"]).format({"Score": "{:.1f}"})
 st.dataframe(styled_summary, use_container_width=True)
 
 # ================== RADAR (WEB) ==================
@@ -427,82 +500,11 @@ with st.expander("📥 Import or Export Evaluation"):
 
 
 # ================== PDF EXPORT ==================
-if st.button("📄 Generate PDF"):
-    pdf = PSPAPDF(project_name or "Project")
-    pdf.alias_nb_pages()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-
-    # Summary
-    pdf.set_font("Arial", "B", 12)
-    pdf.set_text_color(0,0,0)
-    pdf.cell(0, 10, _latin1("Domain Scores"), ln=True)
-    pdf.set_font("Arial", "", 11)
-    for d, s in domain_scores.items():
-        ranking = get_ranking(s)
-        rgb = [int(ranking_colors[ranking].lstrip('#')[i:i+2], 16) for i in (0,2,4)]
-        pdf.set_fill_color(*rgb)
-        pdf.set_text_color(0,0,0)
-        pdf.cell(0, 8, _latin1(f"{d} - {s:.1f}/10 ({ranking.upper()})"), ln=True, fill=True)
-
-    # Lowest questions
-    pdf.ln(4)
-    # ensure space for header + a couple of lines
-    _pdf_ensure_space(pdf, 24)
-    pdf.set_font("Arial", "B", 12)
-    pdf.set_text_color(0,0,0)
-    pdf.cell(0, 8, _latin1("Lowest Rated Questions"), ln=True)
-    pdf.set_font("Arial", "", 11)
-    for d, q in lowest_questions.items():
-        _pdf_ensure_space(pdf, 12)
-        pdf_add_safe_multicell(pdf, _latin1(f"{d}: {q}"), w=0, h=6, txt_color=(200,0,0), italic=False)
-
-    # Improvement Action Plan (start on new page)
-    pdf.add_page()
-    # Improvement plan
-    pdf.ln(4)
-    pdf.set_font("Arial", "B", 12)
-    pdf.set_text_color(0,0,0)
-    pdf.cell(0, 8, _latin1("Improvement Action Plan"), ln=True)
-
-    for d in domain_scores.keys():
-        pdf.set_font("Arial", "B", 11)
-        pdf.set_text_color(0,0,0)
-        pdf.cell(0, 7, _latin1(d), ln=True)
-        pdf.set_font("Arial", "I", 10)
-        pdf_add_safe_multicell(pdf, f"• Action: {st.session_state.get(f'improve-{d}','')}", txt_color=(0,0,160), italic=True)
-        pdf_add_safe_multicell(pdf, f"• Responsible: {st.session_state.get(f'resp-{d}','')}", txt_color=(0,0,160), italic=True)
-        pdf_add_safe_multicell(pdf, f"• Review Date: {st.session_state.get(f'date-{d}', date.today())}", txt_color=(0,0,160), italic=True)
-        pdf.ln(1)
-
-    # Domain Details (start on new page)
-    pdf.add_page()
-    pdf.set_font("Arial", "B", 12)
-    pdf.set_text_color(0,0,0)
-    pdf.cell(0, 8, _latin1("Domain Details"), ln=True)
-    for d in domain_scores.keys():
-        q_rows = [r for r in questions_data if r.get("Domain")==d]
-        _pdf_ensure_space(pdf, _estimate_domain_block_height(pdf, q_rows))
-        pdf.set_font("Arial", "B", 11)
-        pdf.cell(0, 7, _latin1(d), ln=True)
-        pdf.set_font("Arial", "", 11)
-        for row in q_rows:
-            qtxt = f"- {row.get('Question', '')} : {row.get('Score', '')}/10"
-            pdf_add_safe_multicell(pdf, _latin1(qtxt), w=0, h=6, txt_color=(0,0,0), italic=False)
-            n = row.get("Notes","")
-            if n:
-                pdf_add_safe_multicell(pdf, _latin1(f"Notes: {n}"), w=0, h=6, txt_color=(0,0,160), italic=True)
-        pdf.ln(1)
-
-    # Save PDF (Android friendly)
-    import tempfile
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
-        pdf.output(tmp_pdf.name)
-        tmp_pdf.seek(0)
-        pdf_data = tmp_pdf.read()
-    st.download_button("⬇️ Download PDF", pdf_data, file_name=f"{date.today()}_{project_name}_PSPA.pdf", mime="application/pdf")
+st.download_button("⬇️ Download PDF", _build_pdf_report(project_name, domain_scores, lowest_questions, questions_data),
+                 file_name=f"{date.today()}_{project_name}_PSPA.pdf", mime="application/pdf")
 
 # ================== EXCEL EXPORT ==================
+
 excel_bytes = _build_excel_report(
     df_summary,
     pd.DataFrame(questions_data),
