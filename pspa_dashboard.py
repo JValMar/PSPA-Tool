@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 from datetime import date, datetime, timedelta
@@ -156,6 +155,10 @@ img_buffer = io.BytesIO()
 plt.savefig(img_buffer, format='png')
 img_buffer.seek(0)
 st.pyplot(fig)
+
+
+st.markdown("---")
+st.info("💬 **Thank you for using PSPA Tool. Share suggestions at [https://bit.ly/raicesp](https://bit.ly/raicesp)**")
 
 # === PDF EXPORT ===
 pdf = FPDF()
