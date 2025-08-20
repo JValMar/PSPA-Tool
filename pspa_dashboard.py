@@ -316,20 +316,19 @@ for domain, qs in domains.items():
     lowest_questions[domain] = ", ".join(min_questions)
 
     # Per-domain improvement fields
-    st.text_area(f"Improvement Action for {domain}", key=f"improve-{domain}")
-    st.markdown(f"""<style>textarea[aria-label='Improvement Action for {domain}'] {{ background-color:#e8f1ff !important; }}</style>""", unsafe_allow_html=True)
-    st.text_input(f"Responsible for {domain}", key=f"resp-{domain}")
-    st.date_input(f"Review Date", value=st.session_state.get(f"date-{domain}", date.today()), key=f"date-{domain}")
+    st.text_area(f"Improvement Action Plan for {domain}", key=f"improve-{domain}")
+    st.markdown(f"""<style>textarea[aria-label='Improvement Action Plan for {domain}'] {{ background-color:#0b3d2e !important; color:#ffffff !important; }}</style>""", unsafe_allow_html=True)
+    st.text_input(f"IAP responsible for {domain}", key=f"resp-{domain}")
+    st.date_input(f"IAP Review Date", value=st.session_state.get(f"date-{domain}", date.today()), key=f"date-{domain}")
 
 # ================== SUMMARY TABLE ==================
 st.subheader("Summary")
 df_summary = pd.DataFrame({
     "Domain": list(domain_scores.keys()),
     "Score": [round(s, 1) for s in domain_scores.values()],
-    "Lowest Questions": [lowest_questions[d] for d in domain_scores],
-    "Improvement Action": [st.session_state.get(f"improve-{d}", "") for d in domain_scores],
-    "Responsible": [st.session_state.get(f"resp-{d}", "") for d in domain_scores],
-    "Review Date": [st.session_state.get(f"date-{d}", date.today()) for d in domain_scores]
+    "Improvement Action Plan": [st.session_state.get(f"improve-{d}", "") for d in domain_scores],
+    "IAP Responsible": [st.session_state.get(f"resp-{d}", "") for d in domain_scores],
+    "IAP Review Date": [st.session_state.get(f"date-{d}", date.today()) for d in domain_scores]
 })
 
 def color_code(value):
@@ -338,7 +337,7 @@ def color_code(value):
 def highlight_low_questions(val):
     return "color:#cc0000; font-weight:bold;" if isinstance(val, str) and val else ""
 
-styled_summary = df_summary.style.applymap(color_code, subset=["Score"]).applymap(highlight_low_questions, subset=["Lowest Questions"])
+styled_summary = df_summary.style.applymap(color_code, subset=["Score"])
 st.dataframe(styled_summary, use_container_width=True)
 
 # ================== RADAR (WEB) ==================
@@ -458,13 +457,13 @@ if st.button("📄 Generate PDF"):
         _pdf_ensure_space(pdf, 12)
         pdf_add_safe_multicell(pdf, _latin1(f"{d}: {q}"), w=0, h=6, txt_color=(200,0,0), italic=False)
 
-    # Improvement plan (start on new page)
+    # Improvement Action Plan (start on new page)
     pdf.add_page()
     # Improvement plan
     pdf.ln(4)
     pdf.set_font("Arial", "B", 12)
     pdf.set_text_color(0,0,0)
-    pdf.cell(0, 8, _latin1("Improvement Plan"), ln=True)
+    pdf.cell(0, 8, _latin1("Improvement Action Plan"), ln=True)
 
     for d in domain_scores.keys():
         pdf.set_font("Arial", "B", 11)
