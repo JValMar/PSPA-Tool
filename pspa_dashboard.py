@@ -1,91 +1,5 @@
 
 import streamlit as st
-
-st.set_page_config(page_title="PSPA Tool", layout="centered")
-st.image("https://raw.githubusercontent.com/JValMar/PSPA-Tool/main/RAICESP_eng_imresizer.jpg", width=150)
-st.title("📊 PATIENT SAFETY PROJECT ADEQUACY DASHBOARD")
-st.markdown("**Version 1.2 - 20/08/2025**")
-st.markdown("""
-Welcome to the **PSPA Tool** (Version 1.2 - 20/08/2025).  
-This tool is designed to support a structured evaluation of patient safety projects.  
-It enables **identification of areas of improvement**, along with the **planning, tracking, and review of improvement actions**.  
-Users can generate professional PDF and Excel reports with radar charts, detailed notes, and actionable summaries to guide project reviews.
-""")
-
-
-domains = {
-    "1. LEADERSHIP & GOVERNANCE": [
-        "Are PS responsibilities clearly assigned?",
-        "Is there a PS committee or team that meets regularly?",
-        "Are there PS indicators being tracked?",
-        "Is PS integrated into strategic planning?"
-    ],
-    "2. STAFFING, SKILLS & SAFETY CULTURE": [
-        "Is there a shortage of critical staff?",
-        "Do staff feel safe to report incidents?",
-        "Are regular trainings on PS and IPC conducted?",
-        "Do staff feel supported to raise concerns?"
-    ],
-    "3. BASELINE ASSESSMENT": [
-        "Has a PS situation analysis been done?",
-        "Have PS risks or gaps been identified and prioritized?",
-        "Are baseline indicators available?",
-        "Were patients or community consulted?"
-    ],
-    "4. INTERVENTION DESIGN": [
-        "Were actions chosen based on evidence or data?",
-        "Are responsibilities and timelines defined?",
-        "Are patients or staff involved in designing improvements?",
-        "Is it clear what change is expected and how to measure it?"
-    ],
-    "5. CHANGE MANAGEMENT & IMPLEMENTATION": [
-        "Is there a team leading the changes?",
-        "Are changes being piloted or tested before full rollout?",
-        "Are there regular meetings to review progress?",
-        "Is coaching or support provided to staff?"
-    ],
-    "6. MONITORING & MEASUREMENT": [
-        "Are indicators or data collected regularly?",
-        "Are data used to inform decisions or actions?",
-        "Are feedback loops established with frontline staff?",
-        "Is there disaggregated data for equity (e.g. gender)?"
-    ],
-    "7. SUSTAINABILITY & PARTNERSHIPS": [
-        "Are changes being integrated into routines or policies?",
-        "Is there external support (e.g. MoH, NGOs)?",
-        "Is there capacity-building for sustainability?",
-        "Are partnerships formalized or evaluated?"
-    ]
-}
-
-domain_scores, lowest_questions, improvements, responsible, review_date = {}, {}, {}, {}, {}
-questions_data = []
-
-for domain, questions in domains.items():
-    st.markdown("---")
-    st.subheader(domain)
-    domain_total = 0
-    lowest = (11, "")  # puntuación inicial muy alta
-
-    for i, q in enumerate(questions, start=1):
-        q_num = f"{domain.split('.')[0]}.{i}"
-        st.markdown(f"<b>{q_num}</b> {q}", unsafe_allow_html=True)
-        note = st.text_area(f"Notes for {q_num}", key=f"note_{q_num}", label_visibility="collapsed")
-        score = st.slider("Score", 0, 10, 5, key=f"slider_{q_num}")
-        questions_data.append((domain, q_num, q, note, score))
-        domain_total += score
-
-        if score < lowest[0]:
-            lowest = (score, f"{q_num} {q}")
-
-    avg_score = domain_total / len(questions)
-    domain_scores[domain] = avg_score
-    lowest_questions[domain] = lowest[1]
-
-
-
-
-import streamlit as st
 import pandas as pd
 from datetime import date, datetime, timedelta
 import io
@@ -115,9 +29,9 @@ ranking_colors = {
 # === HEADER ===
 st.image("https://raw.githubusercontent.com/JValMar/PSPA-Tool/main/RAICESP_eng_imresizer.jpg", width=150)
 st.title("📊 PATIENT SAFETY PROJECT ADEQUACY DASHBOARD")
-st.markdown("**Version 1.1 - 27/07/2025**")
+st.markdown("**Version 1.2 - 20/08/2025**")
 st.markdown(
-    "Welcome to the **PSPA Tool** (Version 1.1 - 27/07/2025). "
+    "Welcome to the **PSPA Tool** (Version 1.2 - 20/08/2025). "
     "This tool is designed to support a structured evaluation of patient safety projects. "
     "It enables **identification of areas of improvement**, along with the **planning, tracking, and review of improvement actions**. "
     "Users can generate professional PDF and Excel reports with radar charts, detailed notes, and actionable summaries to guide project reviews."
@@ -285,7 +199,7 @@ st.download_button("📄 Download PDF", pdf_data, file_name=f"{date.today()}_{pr
 excel_buffer = io.BytesIO()
 df_questions = pd.DataFrame(questions_data)
 with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
-    df_summary.to_excel(writer, index=False, sheet_name='Summary')
+    df_summary.drop(columns=['Lowest Questions']).to_excel(writer, index=False, sheet_name='Summary')
     df_questions.to_excel(writer, index=False, sheet_name='Questions')
     ws = writer.sheets['Summary']
     for i, col in enumerate(df_summary.columns):
