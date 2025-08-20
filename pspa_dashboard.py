@@ -113,8 +113,23 @@ def _build_excel_report(df_summary, df_questions, project_name, eval_date_str):
         })
         out.to_excel(writer, index=False, sheet_name="Questions")
         wsq = writer.sheets["Questions"]
+        # Default widths
         for ci, cname in enumerate(out.columns):
-            wsq.set_column(ci, ci, 28 if cname=="Question" else (40 if cname=="Notes" else 18))
+            wsq.set_column(ci, ci, 18)
+        # Keep "Notes" wide
+        if "Notes" in out.columns:
+            _idx_notes = list(out.columns).index("Notes")
+            wsq.set_column(_idx_notes, _idx_notes, 40)
+        # Auto-fit "Question" based on content length (bounded)
+        if "Question" in out.columns:
+            _idx_q = list(out.columns).index("Question")
+            try:
+                _q_max = int(out["Question"].astype(str).map(len).max() or 0)
+            except Exception:
+                _q_max = 28
+            _q_width = max(28, min(80, _q_max + 5))
+            wsq.set_column(_idx_q, _idx_q, _q_width)
+
 
     buffer.seek(0)
     return buffer.getvalue()
@@ -302,6 +317,7 @@ for domain, qs in domains.items():
 
     # Per-domain improvement fields
     st.text_area(f"Improvement Action for {domain}", key=f"improve-{domain}")
+    st.markdown(f"""<style>textarea[aria-label='Improvement Action for {domain}'] {{ background-color:#e8f1ff !important; }}</style>""", unsafe_allow_html=True)
     st.text_input(f"Responsible for {domain}", key=f"resp-{domain}")
     st.date_input(f"Review Date", value=st.session_state.get(f"date-{domain}", date.today()), key=f"date-{domain}")
 
@@ -442,6 +458,8 @@ if st.button("📄 Generate PDF"):
         _pdf_ensure_space(pdf, 12)
         pdf_add_safe_multicell(pdf, _latin1(f"{d}: {q}"), w=0, h=6, txt_color=(200,0,0), italic=False)
 
+    # Improvement plan (start on new page)
+    pdf.add_page()
     # Improvement plan
     pdf.ln(4)
     pdf.set_font("Arial", "B", 12)
@@ -456,6 +474,25 @@ if st.button("📄 Generate PDF"):
         pdf_add_safe_multicell(pdf, f"• Action: {st.session_state.get(f'improve-{d}','')}", txt_color=(0,0,160), italic=True)
         pdf_add_safe_multicell(pdf, f"• Responsible: {st.session_state.get(f'resp-{d}','')}", txt_color=(0,0,160), italic=True)
         pdf_add_safe_multicell(pdf, f"• Review Date: {st.session_state.get(f'date-{d}', date.today())}", txt_color=(0,0,160), italic=True)
+        pdf.ln(1)
+
+    # Domain Details (start on new page)
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 12)
+    pdf.set_text_color(0,0,0)
+    pdf.cell(0, 8, _latin1("Domain Details"), ln=True)
+    for d in domain_scores.keys():
+        q_rows = [r for r in questions_data if r.get("Domain")==d]
+        _pdf_ensure_space(pdf, _estimate_domain_block_height(pdf, q_rows))
+        pdf.set_font("Arial", "B", 11)
+        pdf.cell(0, 7, _latin1(d), ln=True)
+        pdf.set_font("Arial", "", 11)
+        for row in q_rows:
+            qtxt = f"- {row.get('Question', '')} : {row.get('Score', '')}/10"
+            pdf_add_safe_multicell(pdf, _latin1(qtxt), w=0, h=6, txt_color=(0,0,0), italic=False)
+            n = row.get("Notes","")
+            if n:
+                pdf_add_safe_multicell(pdf, _latin1(f"Notes: {n}"), w=0, h=6, txt_color=(0,0,160), italic=True)
         pdf.ln(1)
 
     # Save PDF (Android friendly)
