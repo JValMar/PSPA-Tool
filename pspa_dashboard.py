@@ -1,4 +1,11 @@
 import streamlit as st
+
+from io import BytesIO
+from openpyxl import Workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl.chart import RadarChart, Reference
+from openpyxl.styles import Alignment
+from openpyxl.worksheet.table import Table, TableStyleInfo
 import pandas as pd
 from datetime import date, datetime, timedelta
 import io
@@ -163,6 +170,7 @@ st.info("💬 **Thank you for using PSPA Tool. Share suggestions at [https://bit
 # === IMPORT/EXPORT EVALUATION ===
 import json
 
+
 with st.expander("📥 Import or Export Evaluation"):
     col1, col2 = st.columns(2)
     with col1:
@@ -182,14 +190,27 @@ with st.expander("📥 Import or Export Evaluation"):
         if uploaded_json:
             try:
                 data = json.load(uploaded_json)
+                for k in list(st.session_state.keys()):
+                    if k.startswith("slider_") or k.startswith("note_"):
+                        del st.session_state[k]
+                improvements.clear()
+                improvements.update({d: "" for d in domains.keys()})
+                responsible.clear()
+                responsible.update({d: "" for d in domains.keys()})
+                review_date.clear()
+                review_date.update({d: date.today().isoformat() for d in domains.keys()})
+
                 for k, v in data.get("scores", {}).items():
                     st.session_state[k] = v
                 for k, v in data.get("notes", {}).items():
                     st.session_state[k] = v
                 improvements.update(data.get("improvements", {}))
                 responsible.update(data.get("responsible", {}))
-                review_date.update({k: str(v) for k, v in data.get("review_date", {}).items()})
+                review_date.update({k: v for k, v in data.get("review_date", {}).items()})
                 st.success("Previous evaluation loaded successfully.")
+            except Exception as e:
+                st.error(f"Error loading file: {e}")
+
             except Exception as e:
                 st.error(f"Error loading file: {e}")
 
@@ -242,8 +263,68 @@ with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
         col_width = max(df_summary[col].astype(str).map(len).max(), len(col)) + 2
         ws.set_column(i, i, col_width)
     ws.insert_image('H2', 'radar_chart.png', {'image_data': img_buffer})
-st.download_button("📊 Download Excel", excel_buffer.getvalue(), file_name=f"{date.today()}_{project_name}_PSPA.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+excel_bytes = _build_excel_report(df_summary, pd.DataFrame(questions_data), project_name, date.today().isoformat())
+st.download_button("📊 Download Excel", excel_bytes, file_name=f"{date.today()}_{project_name}_PSPA.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # === FOOTER ===
 st.markdown("---")
 st.info("💬 **Thank you for using PSPA Tool. Share suggestions at [https://bit.ly/raicesp](https://bit.ly/raicesp)**")
+
+
+def _build_excel_report(df_summary, df_questions, project_name, eval_date_str):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Summary"
+
+    ws.merge_cells("A1:E1")
+    ws["A1"] = f"Project: {project_name} | Evaluation Date: {eval_date_str}"
+    ws["A1"].alignment = Alignment(horizontal="center")
+
+    if "Lowest Questions" in df_summary.columns:
+        df_summary = df_summary.drop(columns=["Lowest Questions"])
+    for r_idx, row in enumerate(dataframe_to_rows(df_summary, index=False, header=True), start=3):
+        for c_idx, value in enumerate(row, start=1):
+            ws.cell(row=r_idx, column=c_idx, value=value)
+
+    last_row = 3 + len(df_summary)
+    tbl = Table(displayName="DomainSummary", ref=f"A3:E{last_row}")
+    style = TableStyleInfo(name="TableStyleMedium9", showRowStripes=True)
+    tbl.tableStyleInfo = style
+    ws.add_table(tbl)
+
+    for col in ['A','B','C','D','E']:
+        ws.column_dimensions[col].width = 20
+    ws.column_dimensions["C"].width = 45
+
+    radar = RadarChart()
+    radar.title = "Domain Score Radar Chart"
+    radar.style = 18
+    radar.marker = True
+
+    labels = Reference(ws, min_col=1, min_row=4, max_row=last_row)
+    scores = Reference(ws, min_col=2, min_row=3, max_row=last_row)
+    radar.add_data(scores, titles_from_data=True)
+    radar.set_categories(labels)
+    ws.add_chart(radar, "A14")
+
+    legend_row = last_row + 14
+    ws[f"A{legend_row}"] = "RAICESP - PSPA Tool version 1.2"
+    ws[f"A{legend_row}"].alignment = Alignment(horizontal="left")
+
+    ws2 = wb.create_sheet("Questions")
+    ws2.append(["Domain", "Question Number", "Question", "Notes", "Score"])
+    for _, r in df_questions.iterrows():
+        q = str(r.get("Question", ""))
+        if " " in q:
+            qnum, qtext = q.split(" ", 1)
+        else:
+            qnum, qtext = q, ""
+        ws2.append([r.get("Domain",""), qnum, qtext, r.get("Notes",""), r.get("Score","")])
+
+    for col_letter in ["A","B","C","D","E"]:
+        ws2.column_dimensions[col_letter].width = 30 if col_letter in ["C","D"] else 18
+
+    buff = BytesIO()
+    wb.save(buff)
+    buff.seek(0)
+    return buff.getvalue()
