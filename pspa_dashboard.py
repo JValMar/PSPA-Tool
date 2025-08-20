@@ -1,3 +1,4 @@
+# Added utility functions
 def get_ranking(score):
     if score < 2:
         return "Very Low"
