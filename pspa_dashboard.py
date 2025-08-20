@@ -1,11 +1,6 @@
 import streamlit as st
 
 from io import BytesIO
-from openpyxl import Workbook
-from openpyxl.utils.dataframe import dataframe_to_rows
-from openpyxl.chart import RadarChart, Reference
-from openpyxl.styles import Alignment
-from openpyxl.worksheet.table import Table, TableStyleInfo
 import pandas as pd
 from datetime import date, datetime, timedelta
 import io
@@ -271,60 +266,110 @@ st.markdown("---")
 st.info("💬 **Thank you for using PSPA Tool. Share suggestions at [https://bit.ly/raicesp](https://bit.ly/raicesp)**")
 
 
+
+
 def _build_excel_report(df_summary, df_questions, project_name, eval_date_str):
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Summary"
+    import pandas as pd
+    import numpy as np
+    from io import BytesIO
 
-    ws.merge_cells("A1:E1")
-    ws["A1"] = f"Project: {project_name} | Evaluation Date: {eval_date_str}"
-    ws["A1"].alignment = Alignment(horizontal="center")
+    # Copias defensivas
+    summary = df_summary.copy() if df_summary is not None else pd.DataFrame()
+    qdf     = df_questions.copy() if df_questions is not None else pd.DataFrame()
 
-    if "Lowest Questions" in df_summary.columns:
-        df_summary = df_summary.drop(columns=["Lowest Questions"])
-    for r_idx, row in enumerate(dataframe_to_rows(df_summary, index=False, header=True), start=3):
-        for c_idx, value in enumerate(row, start=1):
-            ws.cell(row=r_idx, column=c_idx, value=value)
+    # Normalización mínima
+    if "Score" in summary.columns:
+        summary["Score"] = pd.to_numeric(summary["Score"], errors="coerce")
+    if "Domain" in summary.columns:
+        summary["Domain"] = summary["Domain"].astype(str)
 
-    last_row = 3 + len(df_summary)
-    tbl = Table(displayName="DomainSummary", ref=f"A3:E{last_row}")
-    style = TableStyleInfo(name="TableStyleMedium9", showRowStripes=True)
-    tbl.tableStyleInfo = style
-    ws.add_table(tbl)
+    # Eliminar "Lowest Questions" en el Excel Summary
+    if "Lowest Questions" in summary.columns:
+        summary = summary.drop(columns=["Lowest Questions"])
 
-    for col in ['A','B','C','D','E']:
-        ws.column_dimensions[col].width = 20
-    ws.column_dimensions["C"].width = 45
+    # Buffer para Excel
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+        # === Hoja Summary ===
+        summary.to_excel(writer, index=False, sheet_name="Summary", startrow=2)
+        workbook  = writer.book
+        ws        = writer.sheets["Summary"]
 
-    radar = RadarChart()
-    radar.title = "Domain Score Radar Chart"
-    radar.style = 18
-    radar.marker = True
+        # Fila 1: Proyecto y fecha (merge centrado)
+        merge_format = workbook.add_format({"align": "center", "bold": True})
+        ws.merge_range(0, 0, 0, max(0, len(summary.columns) - 1), f"Project: {project_name} | Evaluation Date: {eval_date_str}", merge_format)
 
-    labels = Reference(ws, min_col=1, min_row=4, max_row=last_row)
-    scores = Reference(ws, min_col=2, min_row=3, max_row=last_row)
-    radar.add_data(scores, titles_from_data=True)
-    radar.set_categories(labels)
-    ws.add_chart(radar, "A14")
+        # Ajuste de columnas: Improvement Action más ancha
+        for col_idx, col_name in enumerate(summary.columns):
+            width = 50 if col_name.lower().startswith("improvement") else 20
+            ws.set_column(col_idx, col_idx, width)
 
-    legend_row = last_row + 14
-    ws[f"A{legend_row}"] = "RAICESP - PSPA Tool version 1.2"
-    ws[f"A{legend_row}"].alignment = Alignment(horizontal="left")
+        # Validación: necesitamos columnas Domain y Score con datos
+        can_chart = (
+            ("Domain" in summary.columns) and
+            ("Score" in summary.columns) and
+            (len(summary) > 0) and
+            (summary["Score"].notna().any())
+        )
 
-    ws2 = wb.create_sheet("Questions")
-    ws2.append(["Domain", "Question Number", "Question", "Notes", "Score"])
-    for _, r in df_questions.iterrows():
-        q = str(r.get("Question", ""))
-        if " " in q:
-            qnum, qtext = q.split(" ", 1)
+        if can_chart:
+            # Rango de datos para categorías y valores
+            r0 = 3                          # primera fila de datos (0-based) = startrow(2) + header(1)
+            r1 = 3 + len(summary) - 1
+            c_domain = list(summary.columns).index("Domain")
+            c_score  = list(summary.columns).index("Score")
+
+            # Construcción del radar chart con estilo tipo web
+            chart = workbook.add_chart({"type": "radar", "subtype": "filled"})
+            chart.add_series({
+                "name":       "Score",
+                "categories": ["Summary", r0, c_domain, r1, c_domain],
+                "values":     ["Summary", r0, c_score,  r1, c_score],
+                "line":       {"width": 2.0, "color": "#1f4e79"},   # línea azul oscuro
+                "fill":       {"color": "#8FAADC", "transparency": 20},  # relleno azul claro
+            })
+            chart.set_style(18)
+            chart.set_title({"name": "Domain Score Radar Chart"})
+            chart.set_legend({"none": True})
+
+            # Inserción del gráfico 5 filas por debajo del final de la tabla
+            ws.insert_chart(r1 + 5, 0, chart)
+
+            # Leyenda al pie, unas filas por debajo del chart
+            ws.write(r1 + 21, 0, "RAICESP - PSPA Tool version 1.2")
         else:
-            qnum, qtext = q, ""
-        ws2.append([r.get("Domain",""), qnum, qtext, r.get("Notes",""), r.get("Score","")])
+            # Mensaje de aviso si no hay datos válidos para el gráfico
+            warn_fmt = workbook.add_format({"italic": True, "font_color": "#7f7f7f"})
+            ws.write(2, 0, "No valid 'Domain'/'Score' data for radar chart.", warn_fmt)
 
-    for col_letter in ["A","B","C","D","E"]:
-        ws2.column_dimensions[col_letter].width = 30 if col_letter in ["C","D"] else 18
+        # === Hoja Questions (detalle) ===
+        # Descomponer número y texto de pregunta si viene en una sola columna "Question"
+        if "Question" in qdf.columns and len(qdf) > 0:
+            def _split_q(s):
+                s = str(s or "")
+                parts = s.split(" ", 1)
+                return (parts[0], parts[1]) if len(parts) == 2 else (s, "")
+            qnums, qtexts = zip(*qdf["Question"].apply(_split_q)) if len(qdf) else ([], [])
+            qdf["Question Number"] = qnums
+            qdf["Question Text"]   = qtexts
+        else:
+            qdf["Question Number"] = ""
+            qdf["Question Text"]   = ""
 
-    buff = BytesIO()
-    wb.save(buff)
-    buff.seek(0)
-    return buff.getvalue()
+        # Construcción de la hoja de detalle
+        out = pd.DataFrame({
+            "Domain":          qdf.get("Domain", ""),
+            "Question Number": qdf.get("Question Number", ""),
+            "Question":        qdf.get("Question Text", qdf.get("Question", "")),
+            "Notes":           qdf.get("Notes", ""),
+            "Score":           pd.to_numeric(qdf.get("Score", ""), errors="coerce"),
+        })
+        out.to_excel(writer, index=False, sheet_name="Questions")
+        wsq = writer.sheets["Questions"]
+
+        # Anchos generosos en texto y notas
+        for ci, cname in enumerate(out.columns):
+            wsq.set_column(ci, ci, 30 if cname in ("Question", "Notes") else 18)
+
+    buffer.seek(0)
+    return buffer.getvalue()
