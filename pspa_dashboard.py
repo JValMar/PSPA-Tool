@@ -54,6 +54,7 @@ def _build_excel_report(df_summary, df_questions, project_name, eval_date_str):
         workbook  = writer.book
         ws        = writer.sheets["Summary"]
 
+        
         # Row 1: Project and Date
         merge_format = workbook.add_format({"align": "center", "bold": True})
         ws.merge_range(0, 0, 0, max(0, len(summary.columns)-1), f"Project: {project_name} | Evaluation Date: {eval_date_str}", merge_format)
@@ -120,18 +121,11 @@ def _build_excel_report(df_summary, df_questions, project_name, eval_date_str):
 
 # PDF helper (FPDF) con header/footer
 class PSPAPDF(FPDF):
-    def __init__(self, project_name, logo_path=None):
+    def __init__(self, project_name):
         super().__init__()
         self.project_name = project_name
-        self.logo_path = logo_path
 
     def header(self):
-        # Optional logo on the right
-        if getattr(self, "logo_path", None):
-            try:
-                self.image(self.logo_path, x=self.w - 40, y=8, w=28)
-            except Exception:
-                pass
         self.set_font("Arial", "B", 11)
         self.set_text_color(0)
         self.cell(0, 8, _latin1("PATIENT SAFETY PROJECT ADEQUACY DASHBOARD"), ln=True, align="L")
@@ -152,6 +146,51 @@ def _latin1(s: str) -> str:
         return (s or "").encode('latin-1', 'replace').decode('latin-1')
     except Exception:
         return str(s)
+
+
+
+def _effective_width(pdf):
+    return pdf.w - pdf.l_margin - pdf.r_margin
+
+def _lines_for_text(pdf, text, size=11, style=""):
+    # Approximate number of lines for given text at current width
+    try:
+        s = _latin1(text or "")
+    except Exception:
+        s = str(text or "")
+    max_w = _effective_width(pdf)
+    pdf.set_font("Arial", style, size)
+    total_lines = 0
+    for para in s.split("\n"):
+        if para == "":
+            total_lines += 1
+            continue
+        words = para.split(" ")
+        line_w = 0.0
+        lines_here = 1
+        for w in words:
+            ww = pdf.get_string_width(w + " ")
+            if line_w + ww <= max_w:
+                line_w += ww
+            else:
+                lines_here += 1
+                line_w = ww
+        total_lines += max(1, lines_here)
+    return total_lines
+
+def _estimate_domain_block_height(pdf, q_rows):
+    # Domain title
+    h = 8
+    # Questions + optional notes
+    for row in q_rows:
+        qtxt = f"- {row.get('Question','')} : {row.get('Score','')}/10"
+        h += _lines_for_text(pdf, qtxt, size=11, style="") * 6
+        notes = row.get("Notes","")
+        if notes:
+            h += _lines_for_text(pdf, f"Notes: {notes}", size=10, style="I") * 6
+        h += 1
+    # small bottom margin
+    return h + 6
 
 
 def _pdf_ensure_space(pdf, needed_h=30):
@@ -185,18 +224,6 @@ It enables **identification of areas of improvement**, and **planning, tracking,
 # ================== PROJECT INFO ==================
 project_name = st.text_input("Project Name", key="project_name")
 project_objectives = st.text_area("🎯 Project Objectives", key="project_objectives")
-
-
-# ================== BRANDING (optional logo for PDF) ==================
-with st.expander("🎨 Branding (optional)"):
-    logo_file = st.file_uploader("Upload logo (PNG/JPG) to include in PDF header", type=["png","jpg","jpeg"], key="logo_upload")
-    if logo_file is not None:
-        st.session_state["logo_bytes"] = logo_file.read()
-        st.success("Logo stored for PDF header.")
-    elif "logo_bytes" in st.session_state:
-        st.info("A logo is already loaded and will be used in PDF header.")
-
-
 
 
 # ================== DOMAINS/QUESTIONS ==================
@@ -386,14 +413,7 @@ with st.expander("📥 Import or Export Evaluation"):
 
 # ================== PDF EXPORT ==================
 if st.button("📄 Generate PDF"):
-    tmp_logo_path = None
-    if st.session_state.get("logo_bytes"):
-        import tempfile
-        _suffix = ".png"
-        with tempfile.NamedTemporaryFile(delete=False, suffix=_suffix) as tlogo:
-            tlogo.write(st.session_state["logo_bytes"])
-            tmp_logo_path = tlogo.name
-    pdf = PSPAPDF(project_name or "Project", logo_path=tmp_logo_path)
+    pdf = PSPAPDF(project_name or "Project")
     pdf.alias_nb_pages()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
@@ -412,11 +432,14 @@ if st.button("📄 Generate PDF"):
 
     # Lowest questions
     pdf.ln(4)
+    # ensure space for header + a couple of lines
+    _pdf_ensure_space(pdf, 24)
     pdf.set_font("Arial", "B", 12)
     pdf.set_text_color(0,0,0)
     pdf.cell(0, 8, _latin1("Lowest Rated Questions"), ln=True)
     pdf.set_font("Arial", "", 11)
     for d, q in lowest_questions.items():
+        _pdf_ensure_space(pdf, 12)
         pdf_add_safe_multicell(pdf, _latin1(f"{d}: {q}"), w=0, h=6, txt_color=(200,0,0), italic=False)
 
     # Improvement plan
