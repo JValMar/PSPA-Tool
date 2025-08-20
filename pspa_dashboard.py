@@ -61,6 +61,29 @@ domains = {
 domain_scores, lowest_questions, improvements, responsible, review_date = {}, {}, {}, {}, {}
 questions_data = []
 
+for domain, questions in domains.items():
+    st.markdown("---")
+    st.subheader(domain)
+    domain_total = 0
+    lowest = (11, "")  # puntuación inicial muy alta
+
+    for i, q in enumerate(questions, start=1):
+        q_num = f"{domain.split('.')[0]}.{i}"
+        st.markdown(f"<b>{q_num}</b> {q}", unsafe_allow_html=True)
+        note = st.text_area(f"Notes for {q_num}", key=f"note_{q_num}", label_visibility="collapsed")
+        score = st.slider("Score", 0, 10, 5, key=f"slider_{q_num}")
+        questions_data.append((domain, q_num, q, note, score))
+        domain_total += score
+
+        if score < lowest[0]:
+            lowest = (score, f"{q_num} {q}")
+
+    avg_score = domain_total / len(questions)
+    domain_scores[domain] = avg_score
+    lowest_questions[domain] = lowest[1]
+
+
+
 
 import streamlit as st
 import pandas as pd
