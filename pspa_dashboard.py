@@ -465,12 +465,39 @@ for domain, qs in domains.items():
     domain_scores[domain] = avg_score
     min_questions = [f"{domain.split('.')[0]}.{i+1} {qs[i]}" for i, s in enumerate(scores) if s == min_score_local]
     lowest_questions[domain] = ", ".join(min_questions)
-    # Per-domain IAP fields (boxed IAP)
-    st.markdown("<div class='iap-section'><div class='iap-badge'>IAP</div>", unsafe_allow_html=True)
+    # Per-domain IAP fields (IAP chip + unified styling across the 3 widgets)
+    st.markdown("""
+    <div style='display:inline-block;background:#0b3d2e;color:#fff;padding:3px 10px;border-radius:9px;font-weight:800;letter-spacing:.4px;margin:4px 0;'>IAP</div>
+    """, unsafe_allow_html=True)
     st.text_area(f"Improvement Action Plan for {domain}", key=f"improve-{domain}", on_change=_touch_state)
     st.text_input(f"IAP responsible for {domain}", key=f"resp-{domain}", on_change=_touch_state)
     st.date_input(f"IAP Review Date", value=st.session_state.get(f"date-{domain}", date.today()), key=f"date-{domain}", on_change=_touch_state)
-    st.markdown("</div>", unsafe_allow_html=True)
+    # Domain-scoped CSS to make the three widgets look like a single boxed group
+    st.markdown(f"""
+    <style>
+    textarea[aria-label='Improvement Action Plan for {domain}'],
+    input[aria-label='IAP responsible for {domain}'],
+    input[aria-label='IAP Review Date'] {{
+        background-color:#145a43 !important;
+        color:#ffffff !important;
+        border: 3px solid #0b3d2e !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    }}
+    /* Merge borders to emulate a single outer box */
+    textarea[aria-label='Improvement Action Plan for {domain}'] {{
+        border-bottom-width:1px !important;
+        border-top-left-radius:12px !important; border-top-right-radius:12px !important;
+    }}
+    input[aria-label='IAP responsible for {domain}'] {{
+        border-top-width:1px !important; border-bottom-width:1px !important;
+        border-radius:0 !important;
+    }}
+    input[aria-label='IAP Review Date'] {{
+        border-top-width:1px !important;
+        border-bottom-left-radius:12px !important; border-bottom-right-radius:12px !important;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
 
 # Summary dataframe for reports
 df_summary = pd.DataFrame({
