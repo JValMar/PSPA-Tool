@@ -7,6 +7,8 @@ from fpdf import FPDF
 import matplotlib.pyplot as plt
 from datetime import date, datetime, timedelta
 import json
+RAICESP_URL = (st.secrets['RAICESP_URL'] if hasattr(st,'secrets') and 'RAICESP_URL' in st.secrets else 'https://bit.ly/raicesp')
+RAICESP_LOGO = 'https://raw.githubusercontent.com/JValMar/PSPA-Tool/main/RAICESP_eng_imresizer.jpg'
 import re
 
 # ================== UTILS ==================
@@ -87,7 +89,7 @@ def _build_excel_report(df_summary, df_questions, project_name, eval_date_str):
             chart.set_y_axis({"min": 0, "max": 10, "major_unit": 2})
 
             ws.insert_chart(r1 + 5, 0, chart)
-            ws.write(r1 + 35, 0, "RAICESP - PSPA Tool version 1.2")
+            ws.write_url(r1 + 35, 0, RAICESP_URL, string="RAICESP - PSPA Tool version 1.2")
         else:
             warn_fmt = workbook.add_format({"italic": True, "font_color": "#7f7f7f"})
             ws.write(start_row, 0, "No valid 'Domain'/'Score' data for radar chart.", warn_fmt)
@@ -137,9 +139,10 @@ def _build_excel_report(df_summary, df_questions, project_name, eval_date_str):
 
 # PDF helper (FPDF) con header/footer
 class PSPAPDF(FPDF):
-    def __init__(self, project_name):
+    def __init__(self, project_name, raicesp_url=None):
         super().__init__()
         self.project_name = project_name
+        self.raicesp_url = raicesp_url or RAICESP_URL
 
     def header(self):
         self.set_font("Arial", "B", 11)
@@ -228,7 +231,7 @@ def pdf_add_safe_multicell(pdf, text, w=0, h=6, txt_color=(0,0,0), italic=False)
 
 def _build_pdf_report(project_name, domain_scores, lowest_questions, questions_data):
     # Build PDF and return bytes
-    pdf = PSPAPDF(project_name or "Project")
+    pdf = PSPAPDF(project_name or "Project", raicesp_url=RAICESP_URL)
     pdf.alias_nb_pages()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
@@ -303,13 +306,19 @@ def _touch_state():
 
 # ================== UI HEADER ==================
 st.set_page_config(page_title="PSPA Tool", layout="centered")
-st.image("https://raw.githubusercontent.com/JValMar/PSPA-Tool/main/RAICESP_eng_imresizer.jpg", width=150)
+st.markdown(f"<a href='{RAICESP_URL}' target='_blank'><img src='{RAICESP_LOGO}' width='150'/></a>", unsafe_allow_html=True)
 st.title("📊 PATIENT SAFETY PROJECT ADEQUACY DASHBOARD")
 st.markdown(f"**Version 1.2 - {date.today().strftime('%d/%m/%Y')}**")
 st.markdown("""
-Welcome to the **PSPA Tool** (Version 1.2).  
-This tool supports a structured evaluation of patient safety projects.  
-It enables **identification of areas of improvement**, and **planning, tracking, and review** of improvement actions.
+Welcome to the **PSPA Tool** (Version 1.2).
+
+This tool provides a rigorous, end‑to‑end workflow to evaluate the adequacy of patient safety projects:
+- **Assess** each project dimension with structured items and 0–10 scoring.
+- **Identify** the lowest‑rated items and the **Improvement Action Plan (IAP)** per domain.
+- **Plan & track** responsibilities and review dates, and **re‑evaluate** later to close the loop.
+
+You can export your current responses (JSON), and download professional **Excel** and **PDF** reports at any time.
+The interface highlights scores, supports rich notes, and keeps pagination readable in the final PDF.
 """)
 
 # ================== PROJECT INFO ==================
@@ -437,24 +446,28 @@ if labels:
     st.pyplot(fig)
 
 
+
 # ================== REPORTS (DOWNLOADS) ==================
 st.divider()
-st.subheader("1) Download reports")
 _ts = datetime.now().strftime('%Y%m%d_%H%M')
 _slug = re.sub(r'[^A-Za-z0-9-]+','-', (project_name or 'Project')).strip('-')[:40] or 'Project'
+
+# Build bytes once (fresh timestamp in headers/footers)
 excel_bytes = _build_excel_report(df_summary, pd.DataFrame(questions_data), project_name or "Project", datetime.now().strftime("%Y-%m-%d %H:%M"))
+pdf_bytes = _build_pdf_report(project_name, domain_scores, lowest_questions, questions_data)
+
 c1, c2 = st.columns(2)
 with c1:
-    st.download_button("1.1 Excel report", excel_bytes, file_name=f"{_ts}_{_slug}_PSPA.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.download_button("📄 PDF report", pdf_bytes, file_name=f"{_ts}_{_slug}_PSPA.pdf", mime="application/pdf")
 with c2:
-    st.download_button("1.2 PDF report", _build_pdf_report(project_name, domain_scores, lowest_questions, questions_data), file_name=f"{_ts}_{_slug}_PSPA.pdf", mime="application/pdf")
+    st.download_button("📊 Excel report", excel_bytes, file_name=f"{_ts}_{_slug}_PSPA.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-# ================== 2) EXPORT / IMPORT ==================
+# ================== 3) DOWNLOAD / UPLOAD RESPONSES ==================
 st.divider()
-with st.expander("2) Export / Import Evaluation"):
+with st.expander("📥 3) Download / Upload responses to continue later"):
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("Export Evaluation (JSON)"):
+        if st.button("Download responses (JSON)"):
             eval_data = {
                 "project_name": st.session_state.get("project_name", ""),
                 "project_objectives": st.session_state.get("project_objectives", ""),
@@ -465,10 +478,10 @@ with st.expander("2) Export / Import Evaluation"):
                 "review_date":  {d: str(st.session_state.get(f"date-{d}", date.today())) for d in domains.keys()}
             }
             json_data = json.dumps(eval_data, indent=2)
-            st.download_button("Download JSON", json_data, file_name="evaluation_data.json", mime="application/json")
+            st.download_button("Save JSON", json_data, file_name="evaluation_data.json", mime="application/json")
     with col2:
         import hashlib
-        uploaded_json = st.file_uploader("Upload previous evaluation (.json)", type="json", key="uploader_json")
+        uploaded_json = st.file_uploader("Upload previous responses (.json)", type="json", key="uploader_json")
         if uploaded_json is not None and not st.session_state.get("_import_done"):
             try:
                 content = uploaded_json.read()
@@ -503,18 +516,22 @@ with st.expander("2) Export / Import Evaluation"):
                             st.session_state[f"date-{d}"] = date.today()
                     st.session_state["_import_digest"] = digest
                     st.session_state["_import_done"] = True
-                    st.success("Previous evaluation loaded.")
+                    st.success("Previous responses loaded.")
                     st.rerun()
             except Exception as e:
                 st.error(f"Error loading file: {e}")
 
-# ================== 3) CLEAR ALL ==================
+# ================== CLEAR ALL ==================
 st.divider()
-if st.button("3) Clear all evaluation now"):
+if st.button("🛑 Clear all evaluation now"):
     for k in list(st.session_state.keys()):
         if k.startswith(("slider_","note_","improve-","resp-","date-")) or k in ("_import_done","_import_digest","project_name","project_objectives","_dirty"):
             del st.session_state[k]
     st.success("All evaluation fields cleared.")
     st.rerun()
 
-st.warning("⚠️ This will permanently clear *all* current inputs (scores, notes, Improvement Action Plans, responsibles, dates, project name & objectives). **Are you sure?** We strongly recommend exporting your responses first.", icon="⚠️")
+st.warning("⚠️ This will permanently clear *all* current inputs (scores, notes, Improvement Action Plans, responsibles, dates, project name & objectives). We strongly recommend **downloading** your responses first.", icon="⚠️")
+
+# ================== FOOTER THANK YOU ==================
+st.markdown("---")
+st.markdown(f"Thanks for using the **RAICESP PSPA Tool v1.2**. For suggestions or questions, please visit the RAICESP website: **[RAICESP]({RAICESP_URL})**.")
