@@ -148,7 +148,7 @@ class PSPAPDF(FPDF):
         self.set_font("Arial", "", 9)
         self.set_text_color(80)
         self.cell(0, 8, _latin1(f"Project: {self.project_name}"), ln=True, align="L")
-        self.cell(0, 6, _latin1(f"Date: {date.today()}"), ln=True, align="L")
+        self.cell(0, 6, _latin1(f"Date: {_dt.now().strftime('%Y-%m-%d %H:%M')}"), ln=True, align="L")
         self.ln(2)
 
     def footer(self):
@@ -298,6 +298,9 @@ def _build_pdf_report(project_name, domain_scores, lowest_questions, questions_d
         pdf_data = tmp_pdf.read()
     return pdf_data
 
+def _touch_state():
+    st.session_state['_dirty'] = _dt.now().isoformat()
+
 # ================== UI HEADER ==================
 st.set_page_config(page_title="PSPA Tool", layout="centered")
 st.image("https://raw.githubusercontent.com/JValMar/PSPA-Tool/main/RAICESP_eng_imresizer.jpg", width=150)
@@ -312,6 +315,7 @@ It enables **identification of areas of improvement**, and **planning, tracking,
 # ================== PROJECT INFO ==================
 project_name = st.text_input("Project Name", key="project_name")
 project_objectives = st.text_area("🎯 Project Objectives", key="project_objectives")
+st.markdown(f"**Evaluation timestamp:** {_dt.now().strftime('%Y-%m-%d %H:%M')}")
 
 
 # ================== DOMAINS/QUESTIONS ==================
@@ -366,97 +370,7 @@ domain_scores = {}
 lowest_questions = {}
 
 for domain, qs in domains.items():
-    st.markdown("---")
-    st.markdown(f"<h3 style='background-color:#003366; color:white; padding:8px; border-radius:6px;'>{domain}</h3>", unsafe_allow_html=True)
-    scores = []
-    min_score_local = 10
-    for i, q in enumerate(qs, start=1):
-        q_num = f"{domain.split('.')[0]}.{i}"
-        st.markdown(f"<p><span style='color:#1a75ff; font-weight:bold;'>{q_num}</span> {q}</p>", unsafe_allow_html=True)
-        note_key = f"note_{q_num}"
-        score_key = f"slider_{q_num}"
-        note_val = st.session_state.get(note_key, "")
-        score_val = st.session_state.get(score_key, 5)
-        notes = st.text_area("Notes", value=note_val, key=note_key)
-        score = st.slider("Score (0-10)", 0, 10, value=score_val, key=score_key)
-        scores.append(score)
-        if score < min_score_local:
-            min_score_local = score
-        questions_data.append({"Domain": domain, "Question": f"{q_num} {q}", "Score": score, "Notes": notes})
-    avg_score = round(float(np.mean(scores)), 1) if len(scores) else 0.0
-    domain_scores[domain] = avg_score
-    min_questions = [f"{domain.split('.')[0]}.{i+1} {qs[i]}" for i, s in enumerate(scores) if s == min_score_local]
-    lowest_questions[domain] = ", ".join(min_questions)
-
-    # Per-domain improvement fields
-    st.text_area(f"Improvement Action Plan for {domain}", key=f"improve-{domain}")
-    st.markdown(f"""<style>textarea[aria-label='Improvement Action Plan for {domain}'] {{ background-color:#0b3d2e !important; color:#ffffff !important; }}</style>""", unsafe_allow_html=True)
-    st.text_input(f"IAP responsible for {domain}", key=f"resp-{domain}")
-    st.date_input(f"IAP Review Date", value=st.session_state.get(f"date-{domain}", date.today()), key=f"date-{domain}")
-
-# ================== SUMMARY TABLE ==================
-st.subheader("Summary")
-df_summary = pd.DataFrame({
-    "Domain": list(domain_scores.keys()),
-    "Score": [round(s, 1) for s in domain_scores.values()],
-    "Improvement Action Plan": [st.session_state.get(f"improve-{d}", "") for d in domain_scores],
-    "IAP Responsible": [st.session_state.get(f"resp-{d}", "") for d in domain_scores],
-    "IAP Review Date": [st.session_state.get(f"date-{d}", date.today()) for d in domain_scores]
-})
-
-def color_code(value):
-    return f"background-color:{ranking_colors[get_ranking(value)]}; color:black"
-
-def highlight_low_questions(val):
-    return "color:#cc0000; font-weight:bold;" if isinstance(val, str) and val else ""
-
-df_summary_view = df_summary.drop(columns=['IAP Review Date'], errors='ignore')
-# Reorder columns for readability
-cols = [c for c in ['Domain','Score','Improvement Action Plan','IAP Responsible'] if c in df_summary_view.columns]
-df_summary_view = df_summary_view[cols]
-styled_summary = df_summary_view.style.applymap(color_code, subset=['Score']).format({'Score': '{:.1f}'})
-st.dataframe(styled_summary, use_container_width=True, hide_index=True)
-
-# ================== RADAR (WEB) ==================
-labels = list(domain_scores.keys())
-if labels:
-    values = list(domain_scores.values())
-    values_c = values + [values[0]]
-    angles = np.linspace(0, 2*np.pi, len(labels), endpoint=False).tolist() + [0]
-    fig, ax = plt.subplots(figsize=(6,6), subplot_kw=dict(polar=True))
-    ax.plot(angles, values_c, linewidth=2, color='#1f4e79')
-    ax.fill(angles, values_c, alpha=0.25, color='#8FAADC')
-    ax.set_xticks(angles[:-1])
-    ax.set_xticklabels(labels, size=8)
-    ax.set_yticks(range(0, 11, 2))
-    ax.set_title("Radar Chart", va='bottom')
-    st.pyplot(fig)
-
-# ================== IMPORT / EXPORT (JSON) ==================
-with st.expander("📥 Import or Export Evaluation"):
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("📤 Export Evaluation"):
-            eval_data = {
-                "project_name": st.session_state.get("project_name", ""),
-                "project_objectives": st.session_state.get("project_objectives", ""),
-                "scores": {k: v for k, v in st.session_state.items() if k.startswith("slider_")},
-                "notes":  {k: v for k, v in st.session_state.items() if k.startswith("note_")},
-                "improvements": {d: st.session_state.get(f"improve-{d}", "") for d in domains.keys()},
-                "responsible":  {d: st.session_state.get(f"resp-{d}", "") for d in domains.keys()},
-                "review_date":  {d: str(st.session_state.get(f"date-{d}", date.today())) for d in domains.keys()}
-            }
-            json_data = json.dumps(eval_data, indent=2)
-            st.download_button("Download JSON", json_data, file_name="evaluation_data.json", mime="application/json")
-
-        st.markdown("---")
-        if st.button("🧹 Clear all evaluation"):
-            for k in list(st.session_state.keys()):
-                if k.startswith(("slider_","note_","improve-","resp-","date-")) or k in ("_import_done","_import_digest","project_name","project_objectives"):
-                    del st.session_state[k]
-            st.success("All evaluation fields cleared.")
-            st.rerun()
-
+    
     with col2:
         import hashlib
         uploaded_json = st.file_uploader("Upload previous evaluation (.json)", type="json", key="uploader_json")
@@ -512,12 +426,17 @@ st.download_button('⬇️ Download PDF', _build_pdf_report(project_name, domain
 
 # ================== EXCEL EXPORT ==================
 
-excel_bytes = _build_excel_report(
-    df_summary,
-    pd.DataFrame(questions_data),
-    project_name or "Project",
-    date.today().isoformat()
-)
+# ================== CLEAR ALL (below reports) ==================
+st.warning("⚠️ This will permanently clear *all* current inputs (scores, notes, Improvement Action Plans, responsibles, dates, project name & objectives). **Are you sure?** We strongly recommend exporting your responses first.", icon="⚠️")
+if st.button("🧹 Clear all evaluation now"):
+    for k in list(st.session_state.keys()):
+        if k.startswith(("slider_","note_","improve-","resp-","date-")) or k in ("_import_done","_import_digest","project_name","project_objectives","_dirty"):
+            del st.session_state[k]
+    st.success("All evaluation fields cleared.")
+    st.rerun()
+
+
+excel_bytes = _build_excel_report(df_summary, pd.DataFrame(questions_data), project_name or "Project", _dt.now().strftime("%Y-%m-%d %H:%M"))
 from datetime import datetime as _dt
 _ts = _dt.now().strftime('%Y%m%d_%H%M')
 _slug = re.sub(r'[^A-Za-z0-9-]+','-', (project_name or 'Project')).strip('-')[:40] or 'Project'
