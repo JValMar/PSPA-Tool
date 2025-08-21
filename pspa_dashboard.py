@@ -326,6 +326,46 @@ def _touch_state():
     st.session_state['_dirty'] = datetime.now().isoformat()
 
 # ================== UI HEADER ==================
+
+# ================== GLOBAL CSS ==================
+st.markdown("""
+<style>
+/* IAP styling */
+.iap-section {
+  border: 3px solid #7a0011; /* dark red */
+  border-radius: 10px;
+  padding: 12px 12px 8px 12px;
+  margin: 10px 0 20px 0;
+  position: relative;
+}
+.iap-badge {
+  position: absolute;
+  top: -14px;
+  left: 14px;
+  background: #7a0011;
+  color: #ffffff;
+  padding: 2px 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+}
+/* Same tone for all IAP fields */
+.iap-section textarea,
+.iap-section input[type="text"],
+.iap-section input[type="date"],
+.iap-section .stDateInput input {
+  background-color: #0b3d2e !important;
+  color: #ffffff !important;
+}
+/* Placeholder contrast */
+.iap-section ::placeholder {
+  color: #d7efe6 !important;
+  opacity: 1;
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.set_page_config(page_title="PSPA Tool", layout="centered")
 st.markdown(f"<a href='{RAICESP_URL}' target='_blank'><img src='{RAICESP_LOGO}' width='150'/></a>", unsafe_allow_html=True)
 st.title("📊 PATIENT SAFETY PROJECT ADEQUACY DASHBOARD")
@@ -403,7 +443,8 @@ lowest_questions = {}
 # Per-domain UI for questions, notes and IAP fields
 for domain, qs in domains.items():
     st.markdown("---")
-    st.markdown(f"<h3 style='background-color:#003366; color:white; padding:8px; border-radius:6px;'>{domain}</h3>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='background-color:#003366; color:white; padding:8px; border-radius:6px; margin-bottom:14px;'>{domain}</h3>", unsafe_allow_html=True)
+    st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
     scores = []
     min_score_local = 10
     for i, q in enumerate(qs, start=1):
@@ -424,12 +465,12 @@ for domain, qs in domains.items():
     domain_scores[domain] = avg_score
     min_questions = [f"{domain.split('.')[0]}.{i+1} {qs[i]}" for i, s in enumerate(scores) if s == min_score_local]
     lowest_questions[domain] = ", ".join(min_questions)
-
-    # Per-domain IAP fields
+    # Per-domain IAP fields (boxed IAP)
+    st.markdown("<div class='iap-section'><div class='iap-badge'>IAP</div>", unsafe_allow_html=True)
     st.text_area(f"Improvement Action Plan for {domain}", key=f"improve-{domain}", on_change=_touch_state)
-    st.markdown(f"""<style>textarea[aria-label='Improvement Action Plan for {domain}'] {{ background-color:#0b3d2e !important; color:#ffffff !important; }}</style>""", unsafe_allow_html=True)
     st.text_input(f"IAP responsible for {domain}", key=f"resp-{domain}", on_change=_touch_state)
     st.date_input(f"IAP Review Date", value=st.session_state.get(f"date-{domain}", date.today()), key=f"date-{domain}", on_change=_touch_state)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # Summary dataframe for reports
 df_summary = pd.DataFrame({
