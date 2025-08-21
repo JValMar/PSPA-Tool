@@ -436,11 +436,25 @@ if labels:
     ax.set_title("Radar Chart", va='bottom')
     st.pyplot(fig)
 
-# Import / Export (JSON)
-with st.expander("📥 Import or Export Evaluation"):
+
+# ================== REPORTS (DOWNLOADS) ==================
+st.divider()
+st.subheader("1) Download reports")
+_ts = datetime.now().strftime('%Y%m%d_%H%M')
+_slug = re.sub(r'[^A-Za-z0-9-]+','-', (project_name or 'Project')).strip('-')[:40] or 'Project'
+excel_bytes = _build_excel_report(df_summary, pd.DataFrame(questions_data), project_name or "Project", datetime.now().strftime("%Y-%m-%d %H:%M"))
+c1, c2 = st.columns(2)
+with c1:
+    st.download_button("1.1 Excel report", excel_bytes, file_name=f"{_ts}_{_slug}_PSPA.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+with c2:
+    st.download_button("1.2 PDF report", _build_pdf_report(project_name, domain_scores, lowest_questions, questions_data), file_name=f"{_ts}_{_slug}_PSPA.pdf", mime="application/pdf")
+
+# ================== 2) EXPORT / IMPORT ==================
+st.divider()
+with st.expander("2) Export / Import Evaluation"):
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("📤 Export Evaluation"):
+        if st.button("Export Evaluation (JSON)"):
             eval_data = {
                 "project_name": st.session_state.get("project_name", ""),
                 "project_objectives": st.session_state.get("project_objectives", ""),
@@ -493,25 +507,14 @@ with st.expander("📥 Import or Export Evaluation"):
                     st.rerun()
             except Exception as e:
                 st.error(f"Error loading file: {e}")
-# ================== PDF EXPORT ==================
-_ts = datetime.now().strftime('%Y%m%d_%H%M')
-_slug = re.sub(r'[^A-Za-z0-9-]+','-', (project_name or 'Project')).strip('-')[:40] or 'Project'
-st.download_button('⬇️ Download PDF', _build_pdf_report(project_name, domain_scores, lowest_questions, questions_data),
-                 file_name=f'{_ts}_{_slug}_PSPA.pdf', mime='application/pdf')
 
-# ================== EXCEL EXPORT ==================
-
-# ================== CLEAR ALL (below reports) ==================
-st.warning("⚠️ This will permanently clear *all* current inputs (scores, notes, Improvement Action Plans, responsibles, dates, project name & objectives). **Are you sure?** We strongly recommend exporting your responses first.", icon="⚠️")
-if st.button("🧹 Clear all evaluation now"):
+# ================== 3) CLEAR ALL ==================
+st.divider()
+if st.button("3) Clear all evaluation now"):
     for k in list(st.session_state.keys()):
         if k.startswith(("slider_","note_","improve-","resp-","date-")) or k in ("_import_done","_import_digest","project_name","project_objectives","_dirty"):
             del st.session_state[k]
     st.success("All evaluation fields cleared.")
     st.rerun()
 
-
-excel_bytes = _build_excel_report(df_summary, pd.DataFrame(questions_data), project_name or "Project", datetime.now().strftime("%Y-%m-%d %H:%M"))
-_ts = datetime.now().strftime('%Y%m%d_%H%M')
-_slug = re.sub(r'[^A-Za-z0-9-]+','-', (project_name or 'Project')).strip('-')[:40] or 'Project'
-st.download_button('📊 Download Excel', excel_bytes, file_name=f'{_ts}_{_slug}_PSPA.xlsx', mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+st.warning("⚠️ This will permanently clear *all* current inputs (scores, notes, Improvement Action Plans, responsibles, dates, project name & objectives). **Are you sure?** We strongly recommend exporting your responses first.", icon="⚠️")
