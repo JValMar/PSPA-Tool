@@ -364,30 +364,110 @@ domains = {
     ]
 }
 
+
 st.header("Self-Assessment")
 questions_data = []
 domain_scores = {}
 lowest_questions = {}
 
+# Per-domain UI for questions, notes and IAP fields
 for domain, qs in domains.items():
-    
+    st.markdown("---")
+    st.markdown(f"<h3 style='background-color:#003366; color:white; padding:8px; border-radius:6px;'>{domain}</h3>", unsafe_allow_html=True)
+    scores = []
+    min_score_local = 10
+    for i, q in enumerate(qs, start=1):
+        q_num = f"{domain.split('.')[0]}.{i}"
+        st.markdown(f"<p><span style='color:#1a75ff; font-weight:bold;'>{q_num}</span> {q}</p>", unsafe_allow_html=True)
+        note_key = f"note_{q_num}"
+        score_key = f"slider_{q_num}"
+        note_val = st.session_state.get(note_key, "")
+        score_val = st.session_state.get(score_key, 5)
+        notes = st.text_area("Notes", value=note_val, key=note_key, on_change=_touch_state)
+        score = st.slider("Score (0-10)", 0, 10, value=score_val, key=score_key)
+        scores.append(score)
+        if score < min_score_local:
+            min_score_local = score
+        questions_data.append({"Domain": domain, "Question": f"{q_num} {q}", "Score": score, "Notes": notes})
+
+    avg_score = round(float(np.mean(scores)), 1) if len(scores) else 0.0
+    domain_scores[domain] = avg_score
+    min_questions = [f"{domain.split('.')[0]}.{i+1} {qs[i]}" for i, s in enumerate(scores) if s == min_score_local]
+    lowest_questions[domain] = ", ".join(min_questions)
+
+    # Per-domain IAP fields
+    st.text_area(f"Improvement Action Plan for {domain}", key=f"improve-{domain}", on_change=_touch_state)
+    st.markdown(f"""<style>textarea[aria-label='Improvement Action Plan for {domain}'] {{ background-color:#0b3d2e !important; color:#ffffff !important; }}</style>""", unsafe_allow_html=True)
+    st.text_input(f"IAP responsible for {domain}", key=f"resp-{domain}", on_change=_touch_state)
+    st.date_input(f"IAP Review Date", value=st.session_state.get(f"date-{domain}", date.today()), key=f"date-{domain}", on_change=_touch_state)
+
+# Summary dataframe for reports
+df_summary = pd.DataFrame({
+    "Domain": list(domain_scores.keys()),
+    "Score": [round(s, 1) for s in domain_scores.values()],
+    "Improvement Action Plan": [st.session_state.get(f"improve-{d}", "") for d in domain_scores],
+    "IAP Responsible": [st.session_state.get(f"resp-{d}", "") for d in domain_scores],
+    "IAP Review Date": [st.session_state.get(f"date-{d}", date.today()) for d in domain_scores]
+})
+
+# Color function (kept)
+def color_code(value):
+    return f"background-color:{ranking_colors[get_ranking(value)]}; color:black"
+
+# Web table view (keep Domain, drop IAP Review Date), one-decimal Score, hide index
+df_summary_view = df_summary.drop(columns=['IAP Review Date'], errors='ignore')
+cols = [c for c in ['Domain','Score','Improvement Action Plan','IAP Responsible'] if c in df_summary_view.columns]
+df_summary_view = df_summary_view[cols]
+styled_summary = df_summary_view.style.applymap(color_code, subset=['Score']).format({'Score': '{:.1f}'})
+st.dataframe(styled_summary, use_container_width=True, hide_index=True)
+
+# Web radar (matplotlib)
+labels = list(domain_scores.keys())
+if labels:
+    values = list(domain_scores.values())
+    values_c = values + [values[0]]
+    angles = np.linspace(0, 2*np.pi, len(labels), endpoint=False).tolist() + [0]
+    fig, ax = plt.subplots(figsize=(6,6), subplot_kw=dict(polar=True))
+    ax.plot(angles, values_c, linewidth=2, color='#1f4e79')
+    ax.fill(angles, values_c, alpha=0.25, color='#8FAADC')
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(labels, size=8)
+    ax.set_yticks(range(0, 11, 2))
+    ax.set_title("Radar Chart", va='bottom')
+    st.pyplot(fig)
+
+# Import / Export (JSON)
+with st.expander("📥 Import or Export Evaluation"):
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📤 Export Evaluation"):
+            eval_data = {
+                "project_name": st.session_state.get("project_name", ""),
+                "project_objectives": st.session_state.get("project_objectives", ""),
+                "scores": {k: v for k, v in st.session_state.items() if k.startswith("slider_")},
+                "notes":  {k: v for k, v in st.session_state.items() if k.startswith("note_")},
+                "improvements": {d: st.session_state.get(f"improve-{d}", "") for d in domains.keys()},
+                "responsible":  {d: st.session_state.get(f"resp-{d}", "") for d in domains.keys()},
+                "review_date":  {d: str(st.session_state.get(f"date-{d}", date.today())) for d in domains.keys()}
+            }
+            json_data = json.dumps(eval_data, indent=2)
+            st.download_button("Download JSON", json_data, file_name="evaluation_data.json", mime="application/json")
     with col2:
         import hashlib
         uploaded_json = st.file_uploader("Upload previous evaluation (.json)", type="json", key="uploader_json")
-        if uploaded_json is not None:
+        if uploaded_json is not None and not st.session_state.get("_import_done"):
             try:
                 content = uploaded_json.read()
                 digest = hashlib.md5(content).hexdigest()
-                if st.session_state.get("_import_digest") != digest and not st.session_state.get("_import_done"):
+                if st.session_state.get("_import_digest") != digest:
                     data = json.loads(content.decode("utf-8"))
                     # Clear previous state
                     for k in list(st.session_state.keys()):
                         if k.startswith(("slider_","note_","improve-","resp-","date-")) or k in ("project_name","project_objectives"):
                             del st.session_state[k]
-                    # Load project fields
+                    # Load
                     st.session_state["project_name"] = data.get("project_name","")
                     st.session_state["project_objectives"] = data.get("project_objectives","")
-                    # Load scores and notes
                     for k, v in data.get("scores", {}).items():
                         try:
                             st.session_state[k] = int(v)
@@ -398,7 +478,6 @@ for domain, qs in domains.items():
                                 st.session_state[k] = v
                     for k, v in data.get("notes", {}).items():
                         st.session_state[k] = v
-                    # Load per-domain fields
                     for d, v in data.get("improvements", {}).items():
                         st.session_state[f"improve-{d}"] = v
                     for d, v in data.get("responsible", {}).items():
@@ -408,15 +487,12 @@ for domain, qs in domains.items():
                             st.session_state[f"date-{d}"] = pd.to_datetime(v, errors='coerce').date() if v else date.today()
                         except Exception:
                             st.session_state[f"date-{d}"] = date.today()
-                    # Mark as imported and rerun once
                     st.session_state["_import_digest"] = digest
                     st.session_state["_import_done"] = True
                     st.success("Previous evaluation loaded.")
                     st.rerun()
             except Exception as e:
                 st.error(f"Error loading file: {e}")
-
-
 # ================== PDF EXPORT ==================
 _ts = datetime.now().strftime('%Y%m%d_%H%M')
 _slug = re.sub(r'[^A-Za-z0-9-]+','-', (project_name or 'Project')).strip('-')[:40] or 'Project'
