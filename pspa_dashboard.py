@@ -89,7 +89,16 @@ def _build_excel_report(df_summary, df_questions, project_name, eval_date_str):
             chart.set_y_axis({"min": 0, "max": 10, "major_unit": 2})
 
             ws.insert_chart(r1 + 5, 0, chart)
-            ws.write_url(r1 + 35, 0, RAICESP_URL, string="RAICESP - PSPA Tool version 1.2")
+            ws.write_url(r1 + 35, 0, RAICESP_URL, string="PSPA Tool version 1.2")
+        try:
+            import requests
+            from io import BytesIO as _BIO_
+            _resp = requests.get(RAICESP_LOGO, timeout=8)
+            if _resp.status_code == 200:
+                _bio = _BIO_(_resp.content)
+                ws.insert_image(r1 + 35, 1, "raicesp_logo.png", {"image_data": _bio, "x_scale": 0.45, "y_scale": 0.45, "url": RAICESP_URL})
+        except Exception:
+            pass
         else:
             warn_fmt = workbook.add_format({"italic": True, "font_color": "#7f7f7f"})
             ws.write(start_row, 0, "No valid 'Domain'/'Score' data for radar chart.", warn_fmt)
@@ -145,6 +154,18 @@ class PSPAPDF(FPDF):
         self.raicesp_url = raicesp_url or RAICESP_URL
 
     def header(self):
+        # RAICESP logo (linked) on top-right
+        try:
+            import requests, tempfile
+            _r = requests.get(RAICESP_LOGO, timeout=8)
+            if _r.status_code == 200:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as _tlogo:
+                    _tlogo.write(_r.content)
+                    _tmp_path = _tlogo.name
+                x_pos = self.w - self.r_margin - 24
+                self.image(_tmp_path, x=x_pos, y=8, w=18, link=self.raicesp_url)
+        except Exception:
+            pass
         self.set_font("Arial", "B", 11)
         self.set_text_color(0)
         self.cell(0, 8, _latin1("PATIENT SAFETY PROJECT ADEQUACY DASHBOARD"), ln=True, align="L")
@@ -158,7 +179,7 @@ class PSPAPDF(FPDF):
         self.set_y(-15)
         self.set_font("Arial", "I", 8)
         self.set_text_color(100)
-        self.cell(0, 10, f"RAICESP - PSPA Tool version 1.2 | Page {self.page_no()} of {{nb}}", 0, 0, "C")
+        self.cell(0, 10, _latin1(f"PSPA Tool version 1.2 | Page {self.page_no()} of {{nb}} | bit.ly/raicesp"), 0, 0, "C", link=self.raicesp_url)
 
 def _latin1(s: str) -> str:
     try:
@@ -534,4 +555,7 @@ st.warning("⚠️ This will permanently clear *all* current inputs (scores, not
 
 # ================== FOOTER THANK YOU ==================
 st.markdown("---")
-st.markdown(f"Thanks for using the **RAICESP PSPA Tool v1.2**. For suggestions or questions, please visit the RAICESP website: **[RAICESP]({RAICESP_URL})**.")
+st.markdown(f"Thanks for using the **PSPA Tool version 1.2**. For suggestions or questions, please visit **[RAICESP]({RAICESP_URL})**.")
+
+# ## WEB_END_LOGO ##
+st.markdown(f"<a href='{RAICESP_URL}' target='_blank'><img src='{RAICESP_LOGO}' width='110' style='margin-top:6px;'/></a>", unsafe_allow_html=True)
