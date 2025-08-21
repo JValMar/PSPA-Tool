@@ -148,7 +148,7 @@ class PSPAPDF(FPDF):
         self.set_font("Arial", "", 9)
         self.set_text_color(80)
         self.cell(0, 8, _latin1(f"Project: {self.project_name}"), ln=True, align="L")
-        self.cell(0, 6, _latin1(f"Date: {_dt.now().strftime('%Y-%m-%d %H:%M')}"), ln=True, align="L")
+        self.cell(0, 6, _latin1(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}"), ln=True, align="L")
         self.ln(2)
 
     def footer(self):
@@ -299,7 +299,7 @@ def _build_pdf_report(project_name, domain_scores, lowest_questions, questions_d
     return pdf_data
 
 def _touch_state():
-    st.session_state['_dirty'] = _dt.now().isoformat()
+    st.session_state['_dirty'] = datetime.now().isoformat()
 
 # ================== UI HEADER ==================
 st.set_page_config(page_title="PSPA Tool", layout="centered")
@@ -315,7 +315,7 @@ It enables **identification of areas of improvement**, and **planning, tracking,
 # ================== PROJECT INFO ==================
 project_name = st.text_input("Project Name", key="project_name")
 project_objectives = st.text_area("🎯 Project Objectives", key="project_objectives")
-st.markdown(f"**Evaluation timestamp:** {_dt.now().strftime('%Y-%m-%d %H:%M')}")
+st.markdown(f"**Evaluation timestamp:** {datetime.now().strftime('%Y-%m-%d %H:%M')}")
 
 
 # ================== DOMAINS/QUESTIONS ==================
@@ -418,8 +418,7 @@ for domain, qs in domains.items():
 
 
 # ================== PDF EXPORT ==================
-from datetime import datetime as _dt
-_ts = _dt.now().strftime('%Y%m%d_%H%M')
+_ts = datetime.now().strftime('%Y%m%d_%H%M')
 _slug = re.sub(r'[^A-Za-z0-9-]+','-', (project_name or 'Project')).strip('-')[:40] or 'Project'
 st.download_button('⬇️ Download PDF', _build_pdf_report(project_name, domain_scores, lowest_questions, questions_data),
                  file_name=f'{_ts}_{_slug}_PSPA.pdf', mime='application/pdf')
@@ -436,8 +435,7 @@ if st.button("🧹 Clear all evaluation now"):
     st.rerun()
 
 
-excel_bytes = _build_excel_report(df_summary, pd.DataFrame(questions_data), project_name or "Project", _dt.now().strftime("%Y-%m-%d %H:%M"))
-from datetime import datetime as _dt
-_ts = _dt.now().strftime('%Y%m%d_%H%M')
+excel_bytes = _build_excel_report(df_summary, pd.DataFrame(questions_data), project_name or "Project", datetime.now().strftime("%Y-%m-%d %H:%M"))
+_ts = datetime.now().strftime('%Y%m%d_%H%M')
 _slug = re.sub(r'[^A-Za-z0-9-]+','-', (project_name or 'Project')).strip('-')[:40] or 'Project'
 st.download_button('📊 Download Excel', excel_bytes, file_name=f'{_ts}_{_slug}_PSPA.xlsx', mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
