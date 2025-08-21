@@ -89,14 +89,14 @@ def _build_excel_report(df_summary, df_questions, project_name, eval_date_str):
             chart.set_y_axis({"min": 0, "max": 10, "major_unit": 2})
 
             ws.insert_chart(r1 + 5, 0, chart)
-            ws.write_url(r1 + 35, 0, RAICESP_URL, string="PSPA Tool version 1.2")
+            ws.write_url(r1 + 42, 0, RAICESP_URL, string="PSPA Tool version 1.2")
         try:
             import requests
             from io import BytesIO as _BIO_
             _resp = requests.get(RAICESP_LOGO, timeout=8)
             if _resp.status_code == 200:
                 _bio = _BIO_(_resp.content)
-                ws.insert_image(r1 + 35, 1, "raicesp_logo.png", {"image_data": _bio, "x_scale": 0.45, "y_scale": 0.45, "url": RAICESP_URL})
+                ws.insert_image(r1 + 42, 1, "raicesp_logo.png", {"image_data": _bio, "x_scale": 0.30, "y_scale": 0.30, "url": RAICESP_URL})
         except Exception:
             pass
         else:
@@ -408,7 +408,7 @@ for domain, qs in domains.items():
     min_score_local = 10
     for i, q in enumerate(qs, start=1):
         q_num = f"{domain.split('.')[0]}.{i}"
-        st.markdown(f"<p><span style='color:#1a75ff; font-weight:bold;'>{q_num}</span> {q}</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='font-size:1.08em;'><span style='color:#1a75ff; font-weight:bold;'>{q_num}</span> <strong>{q}</strong></p>", unsafe_allow_html=True)
         note_key = f"note_{q_num}"
         score_key = f"slider_{q_num}"
         note_val = st.session_state.get(note_key, "")
